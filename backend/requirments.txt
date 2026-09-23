@@ -1,0 +1,9 @@
+# Web 框架与 ASGI 服务器
+fastapi
+uvicorn[standard]
+
+# 登录接口收表单（OAuth2PasswordRequestForm 依赖它）
+python-multipart
+
+# HTTP 客户端，后续调用大模型 API 用
+httpx
