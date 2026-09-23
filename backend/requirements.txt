@@ -7,3 +7,11 @@ python-multipart
 
 # HTTP 客户端，后续调用大模型 API 用
 httpx
+
+# 异步 ORM 与 MySQL 驱动
+sqlalchemy
+asyncmy
+cryptography
+
+# 从 .env 读配置
+pydantic-settings

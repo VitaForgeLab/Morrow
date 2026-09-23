@@ -24,17 +24,17 @@
 
 以"能当场演示下面这 9 条脚本"作为完成标准，**不是"代码写完了"**：
 
-| # | 演示动作 | 验证了什么 |
-| --- | --- | --- |
-| 1 | 注册新账号 → 自动进入聊天页 | 注册 + 签发 token + 自动登录 |
-| 2 | 新建会话 A，问"甲状腺超声检查前需要空腹吗"，看到逐字流式输出 | SSE 流式 |
-| 3 | 在 A 里追问"那喝水呢"，回答体现对上一轮的引用 | 多轮上下文 |
-| 4 | A 生成中，新建会话 B 并提问 | 多会话并行 |
-| 5 | 切回 A，看到的是**完整回答**而不是半截 | 切走不丢（生成 detach） |
-| 6 | 把 A 重命名为"甲状腺检查"，删除 B | 会话重命名 / 删除 |
-| 7 | 刷新页面，历史仍在 | 落库 |
-| 8 | 退出后用另一账号登录，看不到上面两个会话 | 越权校验 + 个人信息保护 |
-| 9 | `docker compose up` 一条命令起全栈 | 部署 |
+| # | 演示动作                                                     | 验证了什么                   |
+| - | ------------------------------------------------------------ | ---------------------------- |
+| 1 | 注册新账号 → 自动进入聊天页                                 | 注册 + 签发 token + 自动登录 |
+| 2 | 新建会话 A，问"甲状腺超声检查前需要空腹吗"，看到逐字流式输出 | SSE 流式                     |
+| 3 | 在 A 里追问"那喝水呢"，回答体现对上一轮的引用                | 多轮上下文                   |
+| 4 | A 生成中，新建会话 B 并提问                                  | 多会话并行                   |
+| 5 | 切回 A，看到的是**完整回答**而不是半截                 | 切走不丢（生成 detach）      |
+| 6 | 把 A 重命名为"甲状腺检查"，删除 B                            | 会话重命名 / 删除            |
+| 7 | 刷新页面，历史仍在                                           | 落库                         |
+| 8 | 退出后用另一账号登录，看不到上面两个会话                     | 越权校验 + 个人信息保护      |
+| 9 | `docker compose up` 一条命令起全栈                         | 部署                         |
 
 9 条全部走通 = 阶段一完成。
 
@@ -46,47 +46,47 @@
 
 **后端**
 
-| 编号 | 功能 | 验收标准 |
-| --- | --- | --- |
-| F1 | 用户注册 | 用户名+密码；密码 bcrypt 哈希；用户名唯一，重复返回明确提示 |
-| F2 | 用户登录 | 签发 JWT，返回 token + 用户信息；密码错误返回 401 |
-| F3 | 鉴权依赖 | 受保护接口统一校验 token 并注入当前用户；无效 token 返回 401 |
-| F4 | 会话 CRUD | 创建 / 列表（分页，按最近活跃排序）/ 重命名 / 删除（级联删消息） |
-| F5 | 消息历史 | 按会话分页读取，支持正序加载 |
-| F6 | 聊天接口 | SSE 流式生成；消息落库；带最近 N 条历史构建上下文 |
-| F7 | 生成任务 detach | 客户端断开后生成继续，跑完后完整落库 |
-| F8 | 模型配置表 | `model_config` 存 provider / base_url / model / 参数，代码从表读而非硬编码 |
-| F9 | 统一响应与异常 | 统一 `{code, message, data}`；全局异常处理器；请求日志中间件 |
-| F10 | 系统提示词与免责 | system prompt 含角色约束与拒答规则；阶段一最小实现（见 §7.5） |
+| 编号 | 功能             | 验收标准                                                                     |
+| ---- | ---------------- | ---------------------------------------------------------------------------- |
+| F1   | 用户注册         | 用户名+密码；密码 bcrypt 哈希；用户名唯一，重复返回明确提示                  |
+| F2   | 用户登录         | 签发 JWT，返回 token + 用户信息；密码错误返回 401                            |
+| F3   | 鉴权依赖         | 受保护接口统一校验 token 并注入当前用户；无效 token 返回 401                 |
+| F4   | 会话 CRUD        | 创建 / 列表（分页，按最近活跃排序）/ 重命名 / 删除（级联删消息）             |
+| F5   | 消息历史         | 按会话分页读取，支持正序加载                                                 |
+| F6   | 聊天接口         | SSE 流式生成；消息落库；带最近 N 条历史构建上下文                            |
+| F7   | 生成任务 detach  | 客户端断开后生成继续，跑完后完整落库                                         |
+| F8   | 模型配置表       | `model_config` 存 provider / base_url / model / 参数，代码从表读而非硬编码 |
+| F9   | 统一响应与异常   | 统一`{code, message, data}`；全局异常处理器；请求日志中间件                |
+| F10  | 系统提示词与免责 | system prompt 含角色约束与拒答规则；阶段一最小实现（见 §7.5）               |
 
 **前端**
 
-| 编号 | 功能 | 验收标准 |
-| --- | --- | --- |
-| F11 | 登录 / 注册页 | 标签页切换；错误提示；成功后写入本地并跳转 |
-| F12 | 聊天主页 | 左侧会话列表 + 右侧聊天窗；新建/重命名/删除入口 |
-| F13 | 流式渲染 | 逐字追加、自动滚到底、生成中状态、失败重试 |
-| F14 | 会话操作 | 与 F4 对应，操作后列表即时更新 |
-| F15 | 路由守卫 | 无 token 一律跳登录页 |
-| F16 | 免责声明常驻 | 页面底部固定展示"不替代医生诊断" |
+| 编号 | 功能          | 验收标准                                        |
+| ---- | ------------- | ----------------------------------------------- |
+| F11  | 登录 / 注册页 | 标签页切换；错误提示；成功后写入本地并跳转      |
+| F12  | 聊天主页      | 左侧会话列表 + 右侧聊天窗；新建/重命名/删除入口 |
+| F13  | 流式渲染      | 逐字追加、自动滚到底、生成中状态、失败重试      |
+| F14  | 会话操作      | 与 F4 对应，操作后列表即时更新                  |
+| F15  | 路由守卫      | 无 token 一律跳登录页                           |
+| F16  | 免责声明常驻  | 页面底部固定展示"不替代医生诊断"                |
 
 ### P1（重要，可延后收尾）
 
-| 编号 | 功能 | 说明 |
-| --- | --- | --- |
-| F17 | 中断生成（stop） | 生成中可停止，消息状态记 `interrupted` 或保留已生成部分 |
-| F18 | 会话标题自动生成 | 用首条问题或一次轻量模型调用生成标题 |
-| F19 | 历史消息无限滚动 | 滚到顶部加载更早消息 |
-| F20 | pytest 冒烟测试 | 登录成功/失败、越权被拒、发消息（mock 模型） |
-| F21 | Markdown 渲染 + XSS 防护 | `marked` + `DOMPurify.sanitize` |
-| F22 | RAG 资料准备（非代码） | 收集甲状腺/颈动脉/腹部超声资料，MinerU 转 md；预习切片/embedding/检索概念 |
+| 编号 | 功能                     | 说明                                                                      |
+| ---- | ------------------------ | ------------------------------------------------------------------------- |
+| F17  | 中断生成（stop）         | 生成中可停止，消息状态记`interrupted` 或保留已生成部分                  |
+| F18  | 会话标题自动生成         | 用首条问题或一次轻量模型调用生成标题                                      |
+| F19  | 历史消息无限滚动         | 滚到顶部加载更早消息                                                      |
+| F20  | pytest 冒烟测试          | 登录成功/失败、越权被拒、发消息（mock 模型）                              |
+| F21  | Markdown 渲染 + XSS 防护 | `marked` + `DOMPurify.sanitize`                                       |
+| F22  | RAG 资料准备（非代码）   | 收集甲状腺/颈动脉/腹部超声资料，MinerU 转 md；预习切片/embedding/检索概念 |
 
 ### P2（可选收尾，不阻塞验收）
 
-| 编号 | 功能 | 说明 |
-| --- | --- | --- |
-| F23 | BYOK 多模型配置 | 用户在设置页填自己的 API key 与模型（`model_config` 表已预留字段） |
-| F24 | Redis 缓存 | 会话列表热点数据 / 最近上下文缓存 |
+| 编号 | 功能            | 说明                                                                 |
+| ---- | --------------- | -------------------------------------------------------------------- |
+| F23  | BYOK 多模型配置 | 用户在设置页填自己的 API key 与模型（`model_config` 表已预留字段） |
+| F24  | Redis 缓存      | 会话列表热点数据 / 最近上下文缓存                                    |
 
 ### 明确不做（Out of scope）
 
@@ -107,65 +107,79 @@ MySQL 8 / InnoDB / utf8mb4。四张表。
 
 ### 4.1 `user`
 
-| 字段 | 类型 | 约束 | 说明 |
-| --- | --- | --- | --- |
-| id | BIGINT | PK, auto_increment | |
-| username | VARCHAR(50) | UNIQUE, NOT NULL, INDEX | 登录名 |
-| password_hash | VARCHAR(255) | NOT NULL | bcrypt 哈希，绝不存明文 |
-| nickname | VARCHAR(50) | NOT NULL | 展示名，默认同 username |
-| created_at | DATETIME | NOT NULL | |
-| updated_at | DATETIME | NOT NULL | |
+| 字段          | 类型         | 约束                    | 说明                    |
+| ------------- | ------------ | ----------------------- | ----------------------- |
+| id            | BIGINT       | PK, auto_increment      |                         |
+| username      | VARCHAR(50)  | UNIQUE, NOT NULL, INDEX | 登录名                  |
+| password_hash | VARCHAR(255) | NOT NULL                | bcrypt 哈希，绝不存明文 |
+| nickname      | VARCHAR(50)  | NOT NULL                | 展示名，默认同 username |
+| created_at    | DATETIME     | NOT NULL                |                         |
+| updated_at    | DATETIME     | NOT NULL                |                         |
 
 > **个人信息最小化**（毕设课题要求 5）：阶段一只收用户名 + 密码，不收手机号、邮箱、真实姓名。
 
 ### 4.2 `conversation`
 
-| 字段 | 类型 | 约束 | 说明 |
-| --- | --- | --- | --- |
-| id | BIGINT | PK, auto_increment | |
-| user_id | BIGINT | FK → user.id, NOT NULL, INDEX | |
-| title | VARCHAR(100) | NOT NULL | 默认"新对话"，可重命名 |
-| last_message_at | DATETIME | NOT NULL, INDEX | 会话列表排序依据 |
-| origin | VARCHAR(20) | NOT NULL, 默认 'user' | 预留：阶段三"系统主动发起"（见 v3 §4） |
-| created_at | DATETIME | NOT NULL | |
-| updated_at | DATETIME | NOT NULL | |
+| 字段            | 类型         | 约束                           | 说明                                    |
+| --------------- | ------------ | ------------------------------ | --------------------------------------- |
+| id              | BIGINT       | PK, auto_increment             |                                         |
+| user_id         | BIGINT       | FK → user.id, NOT NULL, INDEX |                                         |
+| title           | VARCHAR(100) | NOT NULL                       | 默认"新对话"，可重命名                  |
+| last_message_at | DATETIME     | NOT NULL, INDEX                | 会话列表排序依据                        |
+| origin          | VARCHAR(20)  | NOT NULL, 默认 'user'          | 预留：阶段三"系统主动发起"（见 v3 §4） |
+| created_at      | DATETIME     | NOT NULL                       |                                         |
+| updated_at      | DATETIME     | NOT NULL                       |                                         |
 
 索引：`(user_id, last_message_at DESC)` —— 会话列表的主查询走这条。
 删除策略：硬删除，`message` 通过外键级联删除。
 
 ### 4.3 `message`
 
-| 字段 | 类型 | 约束 | 说明 |
-| --- | --- | --- | --- |
-| id | BIGINT | PK, auto_increment | |
-| conversation_id | BIGINT | FK → conversation.id, NOT NULL, INDEX, ON DELETE CASCADE | |
-| role | ENUM('system','user','assistant') | NOT NULL | |
-| content | MEDIUMTEXT | NOT NULL, 默认 '' | |
-| status | ENUM('streaming','completed','failed','interrupted') | NOT NULL | 见下方说明 |
-| model_name | VARCHAR(50) | NULL | 记录本次生成用的模型，便于排查与统计 |
-| error_message | VARCHAR(500) | NULL | `failed` 时记录原因 |
-| created_at | DATETIME | NOT NULL, INDEX | |
+| 字段            | 类型                                                 | 约束                                                      | 说明                                 |
+| --------------- | ---------------------------------------------------- | --------------------------------------------------------- | ------------------------------------ |
+| id              | BIGINT                                               | PK, auto_increment                                        |                                      |
+| conversation_id | BIGINT                                               | FK → conversation.id, NOT NULL, INDEX, ON DELETE CASCADE |                                      |
+| role            | ENUM('system','user','assistant')                    | NOT NULL                                                  | 见下方说明1                          |
+| content         | MEDIUMTEXT                                           | NOT NULL, 默认 ''                                         |                                      |
+| status          | ENUM('streaming','completed','failed','interrupted') | NOT NULL                                                  | 见下方说明2                          |
+| model_name      | VARCHAR(50)                                          | NULL                                                      | 记录本次生成用的模型，便于排查与统计 |
+| error_message   | VARCHAR(500)                                         | NULL                                                      | `failed` 时记录原因                |
+| created_at      | DATETIME                                             | NOT NULL, INDEX                                           |                                      |
+| updated_at      | DATETIME                                             | NOT NULL                                                  |                                      |
 
-> **`status` 是"切走不丢"的关键字段**。发起生成时先插入一条 `status='streaming'`、`content=''` 的 assistant 消息；生成过程中持续 UPDATE `content`；结束时改 `completed`。前端切回来看 `status` 就知道该渲染历史还是续流。
+> **说明1：**OpenAI 定下的对话角色协议,system 是开发者，user 是用户，assistant 是 AI。
+> 每次调用大模型实际上是发一个数组：
+> [
+> {"role": "system",    "content": "你是一个医学助手，只回答检查流程问题，不诊断。"},
+> {"role": "user",      "content": "甲状腺超声检查前要空腹吗？"},
+> {"role": "assistant", "content": "一般不需要严格空腹，但..."},
+> {"role": "user",      "content": "那喝水呢？"}
+> ]
+> 但如果没有角色的限制，模型分不清哪句是用户说的，哪句是自己说的。
+
+> **说明2：`status` 是"切走不丢"的关键字段**。发起生成时先插入一条 `status='streaming'`、`content=''` 的 assistant 消息；生成过程中持续 UPDATE `content`；结束时改 `completed`。前端切回来看 `status` 就知道该渲染历史还是续流。
 >
 > 索引：`(conversation_id, id)` —— 按会话取消息、按时间排序。
+>
+> **说明3（实现期新增，2026-09-23）：** 本表在实现中额外增加了 `updated_at`（原始规格只有 `created_at`）。理由：流式生成过程中 `content` 与 `status` 会被反复 UPDATE，保留最后修改时间有助于排查“生成卡死”和统计生成耗时。上表 `created_at` 行下应补一行 `updated_at / DATETIME / NOT NULL`。
+> **说明4：** 原始规格给 `created_at` 标了 INDEX，实现时未建。理由：本表所有查询都是"按 `conversation_id` 取消息"，已由 `(conversation_id, id)` 索引覆盖；单独的时间索引服务不了任何现有查询，只会增加写入开销。
 
 ### 4.4 `model_config`
 
-| 字段 | 类型 | 约束 | 说明 |
-| --- | --- | --- | --- |
-| id | BIGINT | PK, auto_increment | |
-| name | VARCHAR(50) | UNIQUE, NOT NULL | 如 "deepseek-chat" |
-| provider | VARCHAR(30) | NOT NULL, 默认 'openai-compatible' | |
-| base_url | VARCHAR(255) | NOT NULL | |
-| api_key | VARCHAR(255) | NOT NULL | **只存服务端配置，任何接口都不得下发前端** |
-| model_name | VARCHAR(50) | NOT NULL | 传给 API 的 model 字段 |
-| params | JSON | NULL | temperature / max_tokens 等 |
-| is_default | TINYINT(1) | NOT NULL, 默认 0 | 唯一默认（应用层保证） |
-| is_active | TINYINT(1) | NOT NULL, 默认 1 | |
-| owner_user_id | BIGINT | NULL | NULL = 系统配置；非空 = 用户自带（P2 BYOK） |
-| created_at | DATETIME | NOT NULL | |
-| updated_at | DATETIME | NOT NULL | |
+| 字段          | 类型         | 约束                               | 说明                                             |
+| ------------- | ------------ | ---------------------------------- | ------------------------------------------------ |
+| id            | BIGINT       | PK, auto_increment                 |                                                  |
+| name          | VARCHAR(50)  | UNIQUE, NOT NULL                   | 如 "deepseek-chat"                               |
+| provider      | VARCHAR(30)  | NOT NULL, 默认 'openai-compatible' |                                                  |
+| base_url      | VARCHAR(255) | NOT NULL                           |                                                  |
+| api_key       | VARCHAR(255) | NOT NULL                           | **只存服务端配置，任何接口都不得下发前端** |
+| model_name    | VARCHAR(50)  | NOT NULL                           | 传给 API 的 model 字段                           |
+| params        | JSON         | NULL                               | temperature / max_tokens 等                      |
+| is_default    | TINYINT(1)   | NOT NULL, 默认 0                   | 唯一默认（应用层保证）                           |
+| is_active     | TINYINT(1)   | NOT NULL, 默认 1                   |                                                  |
+| owner_user_id | BIGINT       | NULL                               | NULL = 系统配置；非空 = 用户自带（P2 BYOK）      |
+| created_at    | DATETIME     | NOT NULL                           |                                                  |
+| updated_at    | DATETIME     | NOT NULL                           |                                                  |
 
 > 阶段一实际只需要**一行数据**（`is_default=1, owner_user_id=NULL`）。表先建好是为了：① P2 的 BYOK 不用改结构；② 面试里"模型可配置"这句话有代码支撑，而不是嘴上说。
 
@@ -176,27 +190,29 @@ user ──1:N──> conversation ──1:N──> message
 model_config ──(弱引用，不做外键)──> message.model_name
 ```
 
+一个 user 有多个对话，一个对话有多轮消息message，这里是两个一对多的关系。model_config 和 message 的 model_name 有弱引用的关系，但不做外键。如果做成外键，把某个模型配置删了，数据库会拦着不让删。
+
 ---
 
 ## 5. API 草案
 
 统一前缀 `/api/v1`。除注册/登录外**全部需要** `Authorization: Bearer <token>`。
 
-| 方法 | 路径 | 说明 | 鉴权 |
-| --- | --- | --- | --- |
-| POST | `/auth/register` | 注册，返回 token + user | 否 |
-| POST | `/auth/login` | 登录，返回 token + user | 否 |
-| GET | `/auth/me` | 当前用户信息 | 是 |
-| GET | `/conversations` | 会话列表（分页） | 是 |
-| POST | `/conversations` | 新建会话 | 是 |
-| GET | `/conversations/{id}` | 会话详情 | 是 |
-| PATCH | `/conversations/{id}` | 重命名 | 是 |
-| DELETE | `/conversations/{id}` | 删除（级联消息） | 是 |
-| GET | `/conversations/{id}/messages` | 历史消息（分页） | 是 |
-| POST | `/conversations/{id}/chat` | 发起回答，返回 SSE 流 | 是 |
-| GET | `/conversations/{id}/stream` | 只订阅当前生成流（切回 / 刷新后续流） | 是 |
-| POST | `/conversations/{id}/stop` | 中断生成（P1） | 是 |
-| GET | `/models` | 可用模型列表（阶段一返回默认那条） | 是 |
+| 方法   | 路径                             | 说明                                  | 鉴权 |
+| ------ | -------------------------------- | ------------------------------------- | ---- |
+| POST   | `/auth/register`               | 注册，返回 token + user               | 否   |
+| POST   | `/auth/login`                  | 登录，返回 token + user               | 否   |
+| GET    | `/auth/me`                     | 当前用户信息                          | 是   |
+| GET    | `/conversations`               | 会话列表（分页）                      | 是   |
+| POST   | `/conversations`               | 新建会话                              | 是   |
+| GET    | `/conversations/{id}`          | 会话详情                              | 是   |
+| PATCH  | `/conversations/{id}`          | 重命名                                | 是   |
+| DELETE | `/conversations/{id}`          | 删除（级联消息）                      | 是   |
+| GET    | `/conversations/{id}/messages` | 历史消息（分页）                      | 是   |
+| POST   | `/conversations/{id}/chat`     | 发起回答，返回 SSE 流                 | 是   |
+| GET    | `/conversations/{id}/stream`   | 只订阅当前生成流（切回 / 刷新后续流） | 是   |
+| POST   | `/conversations/{id}/stop`     | 中断生成（P1）                        | 是   |
+| GET    | `/models`                      | 可用模型列表（阶段一返回默认那条）    | 是   |
 
 ### 5.1 越权校验（必做）
 
@@ -246,12 +262,12 @@ data: {"message": "上游模型调用失败"}
 
 ## 6. 页面清单
 
-| 路由 | 页面 | 内容 |
-| --- | --- | --- |
-| `/login` | 登录 / 注册 | 标签切换，用户名 + 密码 |
-| `/chat` | 聊天主页 | 左侧会话列表（新建 / 重命名 / 删除 / 按活跃排序）+ 右侧聊天窗（消息流 + 输入框 + 生成中状态） |
-| `/chat/:conversationId` | 同上，定位到指定会话 | |
-| `/settings` | 设置 | 显示当前模型；P2 加 BYOK 配置 |
+| 路由                      | 页面                 | 内容                                                                                          |
+| ------------------------- | -------------------- | --------------------------------------------------------------------------------------------- |
+| `/login`                | 登录 / 注册          | 标签切换，用户名 + 密码                                                                       |
+| `/chat`                 | 聊天主页             | 左侧会话列表（新建 / 重命名 / 删除 / 按活跃排序）+ 右侧聊天窗（消息流 + 输入框 + 生成中状态） |
+| `/chat/:conversationId` | 同上，定位到指定会话 |                                                                                               |
+| `/settings`             | 设置                 | 显示当前模型；P2 加 BYOK 配置                                                                 |
 
 - 前端用 `react-router-dom`（两个参考项目都没用到，**需另学**）。
 - 路由守卫：无 token 一律跳 `/login`。
@@ -297,7 +313,8 @@ data: {"message": "上游模型调用失败"}
 
 ### 7.4 ASGI 下的数据库
 
-- 一律异步：`create_async_engine` + `async_sessionmaker` + `aiomysql` 驱动。
+- 一律异步：`create_async_engine` + `async_sessionmaker` + `asyncmy` 驱动。
+  - **驱动选型变更记录（2026-09-23）**：原定 `aiomysql`，实施时改用 `asyncmy`。两者都是 SQLAlchemy 官方支持的异步 MySQL 驱动（连接串前缀 `mysql+aiomysql://` / `mysql+asyncmy://`），因此切换不影响其余设计。选 `asyncmy` 的理由：Cython 实现、性能更好，维护更活跃，对 MySQL 8 默认认证插件（`caching_sha2_password`）支持更完整。
 - **不要**在 `async def` 路由里使用同步 `Session` —— 参考项目 `fastapi-react-todo` 正是这个反面例子（`async def` 路由 + 同步 `sqlmodel.Session`），会阻塞事件循环。这一点要能讲清楚为什么。
 - 连接池参数：`pool_pre_ping=True`、`pool_recycle=3600`、`pool_size=5`、`max_overflow=10`。
 
@@ -318,34 +335,34 @@ data: {"message": "上游模型调用失败"}
 
 ### 8.1 参考项目（只读，不做修改）
 
-| 项目 | 位置 | 主要用来学 |
-| --- | --- | --- |
-| fastapi-react-todo | [本地](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/fastapi-react-todo>) | 前端工程结构（组件拆分 / Context 状态 / `api/` 层 fetch 封装 / TS 类型）+ FastAPI 基础分层（APIRouter / Schema 拆分 / Service 层 / CORS） |
-| recyle | [本地](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/recyle>) | 异步 SQLAlchemy 与连接池、SSE 流式（服务端 + 前端消费）、统一响应与统一异常、请求日志中间件 |
+| 项目               | 位置                                                                          | 主要用来学                                                                                                                                 |
+| ------------------ | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| fastapi-react-todo | [本地](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/fastapi-react-todo>) | 前端工程结构（组件拆分 / Context 状态 /`api/` 层 fetch 封装 / TS 类型）+ FastAPI 基础分层（APIRouter / Schema 拆分 / Service 层 / CORS） |
+| recyle             | [本地](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/recyle>)             | 异步 SQLAlchemy 与连接池、SSE 流式（服务端 + 前端消费）、统一响应与统一异常、请求日志中间件                                                |
 
 > 两者都**不覆盖**的部分（多会话模型、`model_config`、生成任务 detach、部署）由本项目自行设计，设计见 §7。
 
 ### 8.2 要学（按依赖顺序）
 
-| # | 内容 | 学到什么程度（边界） | 参考 |
-| --- | --- | --- | --- |
-| 1 | 前端三件套 | HTML 结构 / CSS 盒模型 + Flex / JS DOM + 事件 + fetch。**不求**手写复杂布局与动画 | [Frontend crashcourse.md](<../../../2 Fullstack Dev/20 Raw/Frontend crashcourse.md>) |
-| 2 | React 最小集 | props / useState / useEffect / 列表 key / 受控表单 / Context / fetch 调 API 与 loading-error 态。**不学** Redux、Next.js、SSR、性能优化、fiber 原理 | [TodoContext.tsx](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/fastapi-react-todo/frontend/src/context/TodoContext.tsx>)、[frontend-tutorial.md](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/fastapi-react-todo/Document/frontend-tutorial.md>) |
-| 3 | TypeScript 够用量 | 给 props 与 API 响应写 `interface`，可选字段用 `?`。**不学**泛型体操、装饰器、复杂类型推导 | [types/todo.ts](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/fastapi-react-todo/frontend/src/types/todo.ts>) |
-| 4 | react-router-dom | 配 3 条路由 + 路由守卫。**不学**嵌套路由高级用法、loader/action | [官方文档](https://reactrouter.com/start/declarative/installation)（参考项目里没有） |
-| 5 | APIRouter 拆分 | 按业务拆 router + `prefix`/`tags` + 在 main 组装 | [backend/app/routers/](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/fastapi-react-todo/backend/app/routers/>) |
-| 6 | 异步 SQLAlchemy | 异步引擎 / 会话工厂 / `get_db` 依赖 / `select()` 语法。**要能讲清**"为什么 async 路由里不能用同步 Session" | [db_config.py](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/recyle/News/Admin/config/db_config.py>)、[官方 asyncio 文档](https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html) |
-| 7 | SQLAlchemy 2.0 建模 | `Mapped` / `mapped_column` / FK / 索引 / 关系 / comment | [models/users.py](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/recyle/News/Admin/models/users.py>) |
-| 8 | JWT 认证 | 密码哈希 + 签发/校验 token + 受保护路由依赖。**不学** refresh token、OAuth2 授权码流程 | 自己笔记 [2.FastAPI.md](<../../../2 Fullstack Dev/21 Backend Dev/2.FastAPI.md>) 认证一节、[官方 Security 教程](https://fastapi.tiangolo.com/tutorial/security/) |
-| 9 | SSE 服务端 | `StreamingResponse` + 事件格式约定 + 客户端断开后的行为 | [routers/ai.py](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/recyle/News/Admin/routers/ai.py>)（注意事件格式差异）、[MDN SSE](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events) |
-| 10 | SSE 前端消费 | `fetch` + `response.body.getReader()` + `TextDecoder` + 按行缓冲解析。**要懂**为什么不用 `EventSource`（它不能自定义 Authorization 头） | [AIChat.vue](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/recyle/News/App/src/views/AIChat.vue>) 的 `sendMessage()` |
-| 11 | 统一响应 / 异常 / 日志 | `register_exception_handlers` 模式 + 请求日志中间件 + 统一 `{code,message,data}`。**注意**参考项目的 handler 存在 bug（`HTTP_INTERNAL_SERVER` 拼错、`IntegrityError` 注册成 `InterruptedError`），只学模式不抄实现 | [recyle utils/](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/recyle/News/Admin/utils/>) |
-| 12 | 多会话并行 + 生成 detach | `asyncio.create_task` + `status` 字段 + 进程内广播 + 前端续流。**无现成参考，自己设计** | 本 PRD §7.1、[Operit](https://github.com/AAswordman/Operit)（待读） |
-| 13 | MySQL 基础 | 建库建表 / 索引 / 事务 / 会用 `EXPLAIN` 看一次。**不学**主从复制、分库分表 | 自己笔记 [3.MySQL.md](<../../../2 Fullstack Dev/21 Backend Dev/3.MySQL.md>) |
-| 14 | Docker Compose 部署 | 写 3 个 service（mysql / backend / frontend）+ 前端多阶段构建 + 环境变量注入。**不学** K8s、Swarm、CI/CD | 自己笔记 [docker.md](<../../../2 Fullstack Dev/23 Toolbox/docker.md>)（需先补） |
-| 15 | pytest 冒烟 | 2–4 个用例：登录成功/失败、越权被拒、发消息（mock 模型）。**不学**覆盖率体系、复杂集成测试 | [官方 Testing 教程](https://fastapi.tiangolo.com/tutorial/testing/) |
-| 16 | Markdown + XSS 防护 | `marked` 渲染 + `DOMPurify.sanitize`；React 用 `dangerouslySetInnerHTML` 时**必须**保留 sanitize | [AIChat.vue](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/recyle/News/App/src/views/AIChat.vue>)、[DOMPurify](https://github.com/cure53/DOMPurify) |
-| 17 | RAG 资料准备（非代码） | 收集甲状腺/颈动脉/腹部超声资料并用 MinerU 转 md；预习切片 / embedding / 检索概念 | [v2 PRD](v2_prd.md) |
+| #  | 内容                     | 学到什么程度（边界）                                                                                                                                                                                                               | 参考                                                                                                                                                                                                                                                       |
+| -- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1  | 前端三件套               | HTML 结构 / CSS 盒模型 + Flex / JS DOM + 事件 + fetch。**不求**手写复杂布局与动画                                                                                                                                            | [Frontend crashcourse.md](<../../../2 Fullstack Dev/20 Raw/Frontend crashcourse.md>)                                                                                                                                                                        |
+| 2  | React 最小集             | props / useState / useEffect / 列表 key / 受控表单 / Context / fetch 调 API 与 loading-error 态。**不学** Redux、Next.js、SSR、性能优化、fiber 原理                                                                          | [TodoContext.tsx](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/fastapi-react-todo/frontend/src/context/TodoContext.tsx>)、[frontend-tutorial.md](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/fastapi-react-todo/Document/frontend-tutorial.md>) |
+| 3  | TypeScript 够用量        | 给 props 与 API 响应写`interface`，可选字段用 `?`。**不学**泛型体操、装饰器、复杂类型推导                                                                                                                                | [types/todo.ts](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/fastapi-react-todo/frontend/src/types/todo.ts>)                                                                                                                                          |
+| 4  | react-router-dom         | 配 3 条路由 + 路由守卫。**不学**嵌套路由高级用法、loader/action                                                                                                                                                              | [官方文档](https://reactrouter.com/start/declarative/installation)（参考项目里没有）                                                                                                                                                                        |
+| 5  | APIRouter 拆分           | 按业务拆 router +`prefix`/`tags` + 在 main 组装                                                                                                                                                                                | [backend/app/routers/](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/fastapi-react-todo/backend/app/routers/>)                                                                                                                                         |
+| 6  | 异步 SQLAlchemy          | 异步引擎 / 会话工厂 /`get_db` 依赖 / `select()` 语法。**要能讲清**"为什么 async 路由里不能用同步 Session"                                                                                                                | [db_config.py](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/recyle/News/Admin/config/db_config.py>)、[官方 asyncio 文档](https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html)                                                                |
+| 7  | SQLAlchemy 2.0 建模      | `Mapped` / `mapped_column` / FK / 索引 / 关系 / comment                                                                                                                                                                        | [models/users.py](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/recyle/News/Admin/models/users.py>)                                                                                                                                                    |
+| 8  | JWT 认证                 | 密码哈希 + 签发/校验 token + 受保护路由依赖。**不学** refresh token、OAuth2 授权码流程                                                                                                                                       | 自己笔记[2.FastAPI.md](<../../../2 Fullstack Dev/21 Backend Dev/2.FastAPI.md>) 认证一节、[官方 Security 教程](https://fastapi.tiangolo.com/tutorial/security/)                                                                                               |
+| 9  | SSE 服务端               | `StreamingResponse` + 事件格式约定 + 客户端断开后的行为                                                                                                                                                                          | [routers/ai.py](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/recyle/News/Admin/routers/ai.py>)（注意事件格式差异）、[MDN SSE](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events)                            |
+| 10 | SSE 前端消费             | `fetch` + `response.body.getReader()` + `TextDecoder` + 按行缓冲解析。**要懂**为什么不用 `EventSource`（它不能自定义 Authorization 头）                                                                              | [AIChat.vue](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/recyle/News/App/src/views/AIChat.vue>) 的 `sendMessage()`                                                                                                                                 |
+| 11 | 统一响应 / 异常 / 日志   | `register_exception_handlers` 模式 + 请求日志中间件 + 统一 `{code,message,data}`。**注意**参考项目的 handler 存在 bug（`HTTP_INTERNAL_SERVER` 拼错、`IntegrityError` 注册成 `InterruptedError`），只学模式不抄实现 | [recyle utils/](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/recyle/News/Admin/utils/>)                                                                                                                                                               |
+| 12 | 多会话并行 + 生成 detach | `asyncio.create_task` + `status` 字段 + 进程内广播 + 前端续流。**无现成参考，自己设计**                                                                                                                                  | 本 PRD §7.1、[Operit](https://github.com/AAswordman/Operit)（待读）                                                                                                                                                                                        |
+| 13 | MySQL 基础               | 建库建表 / 索引 / 事务 / 会用`EXPLAIN` 看一次。**不学**主从复制、分库分表                                                                                                                                                  | 自己笔记[3.MySQL.md](<../../../2 Fullstack Dev/21 Backend Dev/3.MySQL.md>)                                                                                                                                                                                  |
+| 14 | Docker Compose 部署      | 写 3 个 service（mysql / backend / frontend）+ 前端多阶段构建 + 环境变量注入。**不学** K8s、Swarm、CI/CD                                                                                                                     | 自己笔记[docker.md](<../../../2 Fullstack Dev/23 Toolbox/docker.md>)（需先补）                                                                                                                                                                              |
+| 15 | pytest 冒烟              | 2–4 个用例：登录成功/失败、越权被拒、发消息（mock 模型）。**不学**覆盖率体系、复杂集成测试                                                                                                                                  | [官方 Testing 教程](https://fastapi.tiangolo.com/tutorial/testing/)                                                                                                                                                                                         |
+| 16 | Markdown + XSS 防护      | `marked` 渲染 + `DOMPurify.sanitize`；React 用 `dangerouslySetInnerHTML` 时**必须**保留 sanitize                                                                                                                       | [AIChat.vue](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/recyle/News/App/src/views/AIChat.vue>)、[DOMPurify](https://github.com/cure53/DOMPurify)                                                                                                     |
+| 17 | RAG 资料准备（非代码）   | 收集甲状腺/颈动脉/腹部超声资料并用 MinerU 转 md；预习切片 / embedding / 检索概念                                                                                                                                                   | [v2 PRD](v2_prd.md)                                                                                                                                                                                                                                         |
 
 ### 8.3 明确不学（阶段一不碰）
 
@@ -361,15 +378,15 @@ data: {"message": "上游模型调用失败"}
 
 ## 9. 风险与依赖
 
-| 风险 | 影响 | 缓解 |
-| --- | --- | --- |
-| 前端从零起步，是**最长关键路径** | 拖住整体进度 | UI 全用 AntD；参考项目照着改；集中把 React 最小集先啃下来 |
-| 生成 detach 无现成参考 | 可能卡住 | 先跑前端保活简化版；参考开源 chat 应用（§7.1）；必要时降级为 P1 |
-| Docker 从零学 | 收尾超期 | 只做"能起"，不做调优；先把 `docker.md` 笔记补上 |
-| 功能范围膨胀 | 迟迟没有可演示版本 | 严格按 P0 → P1 → P2 顺序推进；先跑通非流式全链路，再上流式 |
-| 本地 shell 环境不可用（`spawn D:\Git\bin\bash.exe ENOENT`） | 无法本地跑通验证，"跑通才算学完"这条原则失效 | 修复 Git Bash 路径或重启编辑器后再开工 |
-| 同一会话并发生成 | 数据错乱 | 单会话单生成任务，重复请求返回 409 |
-| 上游模型 API 不稳定 / 限流 | 演示失败 | 统一走 `model_config` 便于换供应商；失败落 `status='failed'` 并支持重试 |
+| 风险                                                          | 影响                                         | 缓解                                                                       |
+| ------------------------------------------------------------- | -------------------------------------------- | -------------------------------------------------------------------------- |
+| 前端从零起步，是**最长关键路径**                        | 拖住整体进度                                 | UI 全用 AntD；参考项目照着改；集中把 React 最小集先啃下来                  |
+| 生成 detach 无现成参考                                        | 可能卡住                                     | 先跑前端保活简化版；参考开源 chat 应用（§7.1）；必要时降级为 P1           |
+| Docker 从零学                                                 | 收尾超期                                     | 只做"能起"，不做调优；先把`docker.md` 笔记补上                           |
+| 功能范围膨胀                                                  | 迟迟没有可演示版本                           | 严格按 P0 → P1 → P2 顺序推进；先跑通非流式全链路，再上流式               |
+| 本地 shell 环境不可用（`spawn D:\Git\bin\bash.exe ENOENT`） | 无法本地跑通验证，"跑通才算学完"这条原则失效 | 修复 Git Bash 路径或重启编辑器后再开工                                     |
+| 同一会话并发生成                                              | 数据错乱                                     | 单会话单生成任务，重复请求返回 409                                         |
+| 上游模型 API 不稳定 / 限流                                    | 演示失败                                     | 统一走`model_config` 便于换供应商；失败落 `status='failed'` 并支持重试 |
 
 ---
 
@@ -377,12 +394,12 @@ data: {"message": "上游模型调用失败"}
 
 阶段一不是"额外的练手项目"，**它就是毕设的骨架**。毕业设计的课题名称、7 条课题要求与 5 条研究重点见 [v2 PRD §0](v2_prd.md)。
 
-| 毕设要求 | 阶段一的覆盖情况 |
-| --- | --- |
-| 要求 1：调研 LLM / 智能问答 / 语义检索 / RAG | 阶段一的选型过程即调研素材，注意留决策记录（本 PRD §7 与 README 技术栈表） |
-| 要求 3：文档处理、语义检索、答案生成、多轮对话 | 答案生成 ✅、多轮对话 ✅；文档处理与语义检索 → 阶段二 |
-| 要求 4：Web 界面、提问、历史记录、答案来源展示 | 前三项 ✅；来源展示 → 阶段二 |
-| 要求 5：风险提示、敏感问题、个人信息保护 | 阶段一埋最小钩子（§7.5），阶段二加固 |
-| 研究重点 4：多轮对话管理 | 阶段一实现基础版（最近 N 条上下文）；阶段二升级为带检索上下文的多轮 |
+| 毕设要求                                       | 阶段一的覆盖情况                                                            |
+| ---------------------------------------------- | --------------------------------------------------------------------------- |
+| 要求 1：调研 LLM / 智能问答 / 语义检索 / RAG   | 阶段一的选型过程即调研素材，注意留决策记录（本 PRD §7 与 README 技术栈表） |
+| 要求 3：文档处理、语义检索、答案生成、多轮对话 | 答案生成 ✅、多轮对话 ✅；文档处理与语义检索 → 阶段二                      |
+| 要求 4：Web 界面、提问、历史记录、答案来源展示 | 前三项 ✅；来源展示 → 阶段二                                               |
+| 要求 5：风险提示、敏感问题、个人信息保护       | 阶段一埋最小钩子（§7.5），阶段二加固                                       |
+| 研究重点 4：多轮对话管理                       | 阶段一实现基础版（最近 N 条上下文）；阶段二升级为带检索上下文的多轮         |
 
 **因此阶段一必须能"讲"**：不只是跑得起来，还要能说清每个设计决策的理由。答辩与面试问的是"为什么这么设计"，不是"用了什么框架"。
