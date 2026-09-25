@@ -34,7 +34,7 @@
 | 后端       | Python 3.12 + FastAPI + SQLAlchemy 2.0 (async)          | ASGI 下统一用异步驱动，不用同步 Session                                   |
 | 数据库     | MySQL 8                                                 | 阶段二再评估是否迁移 PostgreSQL（pgvector）                               |
 | 缓存       | Redis                                                   | 阶段一列为**可选**；消息全量落库，Redis 只做缓存/上下文，阶段二启用 |
-| 大模型     | OpenAI-compatible API（httpx 流式）                     | 生产统一用项目自己的 key，不做 BYOK                                       |
+| 大模型     | OpenAI 官方 SDK（openai 包，异步流式）                     | 用 DeepSeek 官方 API；生产统一用项目自己的 key，不做 BYOK。**变更记录（2026-09-25）**：原定 httpx 手写流式，改用官方 openai SDK —— 上游流式解析交给 SDK，阶段 F 自己那侧的 SSE 发送不受影响                                       |
 | 部署运维   | Git + Linux + Docker + Docker Compose + Nginx           | 阶段一目标是`docker compose up` 一键起全栈                              |
 | 文档解析   | MinerU（PDF → Markdown）                               | 阶段二知识库构建用                                                        |
 | Agent 框架 | **未定**                                          | 阶段三再定，候选 LangChain / LangGraph / 自研 loop                        |
