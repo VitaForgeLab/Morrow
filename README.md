@@ -51,10 +51,11 @@ Morrow/
 ├── docs/
 │   ├── v1_prd.md        # 阶段一 PRD：完整规格
 │   ├── v2_prd.md        # 阶段二 PRD：毕设背景、检索链路与评估
-│   └── v3_prd.md        # 阶段三 PRD：愿景与开放问题
+│   ├── v3_prd.md        # 阶段三 PRD：愿景与开放问题
+│   └── frontend_architecture.md  # 前端架构说明（架构 / 数据流 / 前后端交互）
 ├── references/          # 资料实体与链接清单（论文、外部文档、抓取素材）
-├── backend/             # 待建：FastAPI 应用
-└── frontend/            # 待建：React 应用
+├── backend/             # FastAPI 应用
+└── frontend/            # React 应用
 ```
 
 约定：
