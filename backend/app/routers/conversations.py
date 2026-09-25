@@ -3,9 +3,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import get_current_user
 from app.database.session import get_db
-from app.models import Conversation, User
+from app.models import Conversation, User, Message
 from app.schemas.conversation import ConversationOut, ConversationUpdate
-from app.services import conversation_service
+from app.services import conversation_service, message_service
+
+from app.schemas.message import MessageOut
 
 
 
@@ -69,3 +71,15 @@ async def delete_conversation(
     """删除会话，消息由数据库级联一起删除。"""
     await conversation_service.delete(db, conv)
     return None
+
+@router.get("/{conversation_id}/messages", response_model=list[MessageOut])
+# 获得某一个对话的所有 message
+# 越权校验函数就在本文件，所以就不新建 service/message.py 了。
+async def list_messages(
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    conv: Conversation = Depends(get_owned_conversation),
+    db: AsyncSession = Depends(get_db),
+):
+    """会话的消息历史，按时间正序，分页。"""
+    return await message_service.list_for_conversation(db, conv.id, limit, offset)
