@@ -30,7 +30,7 @@
 
 | 层         | 选型                                                    | 备注                                                                      |
 | ---------- | ------------------------------------------------------- | ------------------------------------------------------------------------- |
-| 前端       | HTML/CSS/JS + React 18 + TypeScript + Vite + Ant Design | 只学 React 一个框架；不引入 Vue / Next.js / Redux                         |
+| 前端       | HTML/CSS/JS + React 19 + TypeScript + Vite + Ant Design | 只学 React 一个框架；不引入 Vue / Next.js / Redux。**版本变更记录（2026-09-25）**：脚手架给的是 React 19 + AntD 6，是当前稳定组合且无 peer 依赖冲突，故不再强行降到 18 —— 对这个应用两者无实质差别。另引入 `react-router-dom`（PRD §6 已列）与 `marked` + `dompurify`（F21）                         |
 | 后端       | Python 3.12 + FastAPI + SQLAlchemy 2.0 (async)          | ASGI 下统一用异步驱动，不用同步 Session                                   |
 | 数据库     | MySQL 8                                                 | 阶段二再评估是否迁移 PostgreSQL（pgvector）                               |
 | 缓存       | Redis                                                   | 阶段一列为**可选**；消息全量落库，Redis 只做缓存/上下文，阶段二启用 |
