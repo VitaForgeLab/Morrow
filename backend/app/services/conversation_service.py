@@ -1,14 +1,44 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Conversation
+from app.models import Conversation, Message
 
 DEFAULT_TITLE = "新对话"
 
 
+async def get_empty_for_user(db: AsyncSession, user_id: int) -> Conversation | None:
+    """找出该用户"还没问过话"的会话（一条消息都没有）。
+
+    用 NOT EXISTS 子查询判断有没有消息，而不是拿 last_message_at 和 created_at 比 ——
+    后者依赖"两个时间戳恰好相等"这个隐含约定，读起来也不直白。
+    走的是 message 表上 (conversation_id, id) 那条索引。
+    """
+    result = await db.execute(
+        select(Conversation)
+        .where(
+            Conversation.user_id == user_id,
+            ~exists(
+                select(Message.id).where(Message.conversation_id == Conversation.id)
+            ),
+        )
+        .order_by(Conversation.id.desc())
+        .limit(1)
+    )
+    return result.scalars().first()
+
+
 async def create(db: AsyncSession, user_id: int, title: str | None = None) -> Conversation:
+    """拿到一个"可以开始问话的会话"。
+
+    如果该账号已经有一个还没问过话的会话，直接返回它、不再新建 ——
+    否则用户可以反复点"新建会话"，堆出一长串空会话。
+    """
+    existing = await get_empty_for_user(db, user_id)
+    if existing is not None:
+        return existing
+
     now = datetime.now(timezone.utc)
     conv = Conversation(
         user_id=user_id,

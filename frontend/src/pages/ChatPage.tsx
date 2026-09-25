@@ -62,8 +62,14 @@ export default function ChatPage() {
   const handleCreate = async () => {
     try {
       const conv = await api.createConversation()
-      setConversations((prev) => [conv, ...prev])
-      navigate(`/chat/${conv.id}`)
+      // 后端不允许堆一堆空会话：如果已经有一个"还没问过话"的会话，它会直接返回那个。
+      // 所以这里重新拉一次列表，而不是往前面插一条（否则会出现重复项）。
+      await refreshConversations()
+      if (conv.id === currentId) {
+        message.info('当前已经是新会话了，直接提问吧')
+      } else {
+        navigate(`/chat/${conv.id}`)
+      }
     } catch (e) {
       message.error(e instanceof Error ? e.message : '新建失败')
     }
