@@ -21,3 +21,6 @@ pyjwt
 
 # 密码哈希（Argon2）
 pwdlib[argon2]
+
+# 大模型客户端（OpenAI 兼容 SDK）
+openai

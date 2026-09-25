@@ -3,7 +3,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.database.base import Base, TimestampMixin
 
 
-class ModelConfig(TimestampMixin, Base):  # 类名改成大驼峰
+class ModelConfig(TimestampMixin, Base):
     __tablename__ = "model_config"
 
     id: Mapped[int] = mapped_column(
