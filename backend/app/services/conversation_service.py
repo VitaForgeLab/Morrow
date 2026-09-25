@@ -52,3 +52,8 @@ async def delete(db: AsyncSession, conv: Conversation) -> None:
     # message 由数据库外键的 ON DELETE CASCADE 一起删，这里不用管
     await db.delete(conv)
     await db.commit()
+
+async def touch_last_message_at(db: AsyncSession, conv: Conversation) -> None:
+    """发消息后刷新活跃时间，让这个会话排到列表最前面。"""
+    conv.last_message_at = datetime.now(timezone.utc)
+    await db.commit()

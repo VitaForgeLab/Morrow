@@ -9,6 +9,9 @@ from app.services import conversation_service, message_service
 
 from app.schemas.message import MessageOut
 
+from app.schemas.message import ChatRequest, MessageOut
+from app.services import chat_service, conversation_service, message_service
+
 
 
 router = APIRouter(prefix="/conversations", tags=["会话"])
@@ -83,3 +86,12 @@ async def list_messages(
 ):
     """会话的消息历史，按时间正序，分页。"""
     return await message_service.list_for_conversation(db, conv.id, limit, offset)
+
+@router.post("/{conversation_id}/chat", response_model=MessageOut)
+async def chat(
+    data: ChatRequest,
+    conv: Conversation = Depends(get_owned_conversation),
+    db: AsyncSession = Depends(get_db),
+):
+    """发一条消息，同步等模型给出完整回答（暂时不做流式）。"""
+    return await chat_service.reply(db, conv, data.content)
