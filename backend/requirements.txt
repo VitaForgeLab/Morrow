@@ -15,3 +15,9 @@ cryptography
 
 # 从 .env 读配置
 pydantic-settings
+
+# JWT 签发与校验
+pyjwt
+
+# 密码哈希（Argon2）
+pwdlib[argon2]

@@ -307,7 +307,8 @@ data: {"message": "上游模型调用失败"}
 ### 7.3 鉴权
 
 - 标准 `Authorization: Bearer <token>`，后端依赖里自己 strip 掉 `Bearer ` 前缀。
-- 密码用 `passlib[bcrypt]` 哈希；JWT 用 `PyJWT` 或 `python-jose`，HS256，有效期 7 天。
+- 密码用 `pwdlib[argon2]` 哈希（Argon2 算法）；JWT 用 `PyJWT`，HS256，有效期 7 天。
+  - **密码库选型变更记录（2026-09-24）**：原定 `passlib[bcrypt]`，实施时改用 `pwdlib[argon2]`。理由：passlib 已长期停止维护，与新版 bcrypt 存在已知不兼容（会莫名报错）；`pwdlib` 是 FastAPI 官方文档当前的推荐方案，且 Argon2 抗暴力破解强于 bcrypt。`user.password_hash` 留的 `VARCHAR(255)` 足够容纳 Argon2 哈希串（约 97 字符）。
 - **不要抄参考项目 recyle 的裸 token + `user_token` 表方案** —— 它的 docstring 写着 JWT，实际代码是 UUID 存表，两者都不是标准做法。
 - 阶段一不做 refresh token、不做多设备登出、不做权限角色体系。
 
