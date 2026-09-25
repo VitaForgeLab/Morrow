@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.schemas.common import ApiResponse
+
 from app.core.security import create_access_token, get_current_user
 from app.database.session import get_db
 from app.models import User
@@ -14,6 +16,8 @@ router = APIRouter(prefix="/auth", tags=["认证"])
 @router.post("/register", response_model=AuthResponse)
 async def register(data: UserCreate, db: AsyncSession = Depends(get_db)):
     """注册。成功直接返回 token —— 这就是 Todo 第 1 条的"注册后自动登录"。"""
+    # 刻意不使用 ApiResponse 信封：Swagger 的 Authorize 按钮要求
+    # access_token 平铺在最外层（这也是 PRD §5.2 的一个例外）
     user = await user_service.register(db, data)
     return AuthResponse(
         access_token=create_access_token(user.id),
@@ -41,10 +45,9 @@ async def login(
     )
 
 
-@router.get("/me", response_model=UserOut)# UserOut保护了输出，所以即便 return current_user 也不会泄露密码
+@router.get("/me", response_model=ApiResponse[UserOut])
 async def read_me(current_user: User = Depends(get_current_user)):
-    """必须带 Authorization: Bearer <token> 才能访问。"""
-    return current_user
+    return ApiResponse(data=current_user)
 
 """
 路由层算是好理解的，几个要点就是：

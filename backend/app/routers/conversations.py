@@ -3,24 +3,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import get_current_user
 from app.database.session import get_db
-from app.models import Conversation, User, Message
+from app.models import Conversation, User
+from app.schemas.common import ApiResponse
 from app.schemas.conversation import ConversationOut, ConversationUpdate
-from app.services import conversation_service, message_service
-
-from app.schemas.message import MessageOut
-
 from app.schemas.message import ChatRequest, MessageOut
 from app.services import chat_service, conversation_service, message_service
 
-
-
 router = APIRouter(prefix="/conversations", tags=["会话"])
+
 
 # ---------- 越权校验依赖（本阶段的核心）----------
 async def get_owned_conversation(
     conversation_id: int,                                    # 路径参数，依赖也能声明
-    current_user: User = Depends(get_current_user),           # 子依赖
-    db: AsyncSession = Depends(get_db),                       # 子依赖
+    current_user: User = Depends(get_current_user),          # 子依赖
+    db: AsyncSession = Depends(get_db),                      # 子依赖
 ) -> Conversation:
     """确认会话存在【且属于当前用户】，否则 404。
 
@@ -32,8 +28,9 @@ async def get_owned_conversation(
         raise HTTPException(status_code=404, detail="会话不存在")
     return conv
 
+
 # ---------- 端点 ----------
-@router.get("", response_model=list[ConversationOut])
+@router.get("", response_model=ApiResponse[list[ConversationOut]])
 async def list_conversations(
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
@@ -41,43 +38,47 @@ async def list_conversations(
     db: AsyncSession = Depends(get_db),
 ):
     """会话列表，按最近活跃倒序，分页。"""
-    return await conversation_service.list_for_user(db, current_user.id, limit, offset)
+    items = await conversation_service.list_for_user(db, current_user.id, limit, offset)
+    return ApiResponse(data=items)
 
-@router.post("", response_model=ConversationOut)
+
+@router.post("", response_model=ApiResponse[ConversationOut])
 async def create_conversation(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """新建会话。不收请求体 —— 标题用默认的"新对话"，改名走 PATCH。"""
-    return await conversation_service.create(db, current_user.id)
+    conv = await conversation_service.create(db, current_user.id)
+    return ApiResponse(data=conv)
 
 
-@router.get("/{conversation_id}", response_model=ConversationOut)
+@router.get("/{conversation_id}", response_model=ApiResponse[ConversationOut])
 async def get_conversation(conv: Conversation = Depends(get_owned_conversation)):
-    return conv
+    return ApiResponse(data=conv)
 
 
-@router.patch("/{conversation_id}", response_model=ConversationOut)
+@router.patch("/{conversation_id}", response_model=ApiResponse[ConversationOut])
 async def rename_conversation(
     data: ConversationUpdate,
     conv: Conversation = Depends(get_owned_conversation),
     db: AsyncSession = Depends(get_db),
 ):
-    return await conversation_service.rename(db, conv, data.title)
+    conv = await conversation_service.rename(db, conv, data.title)
+    return ApiResponse(data=conv)
 
 
-@router.delete("/{conversation_id}")
+@router.delete("/{conversation_id}", response_model=ApiResponse[None])
 async def delete_conversation(
     conv: Conversation = Depends(get_owned_conversation),
     db: AsyncSession = Depends(get_db),
 ):
     """删除会话，消息由数据库级联一起删除。"""
     await conversation_service.delete(db, conv)
-    return None
+    return ApiResponse(data=None)
 
-@router.get("/{conversation_id}/messages", response_model=list[MessageOut])
-# 获得某一个对话的所有 message
-# 越权校验函数就在本文件，所以就不新建 service/message.py 了。
+
+# 越权校验依赖就在本文件，所以消息相关端点也放在这里，不另建 messages router。
+@router.get("/{conversation_id}/messages", response_model=ApiResponse[list[MessageOut]])
 async def list_messages(
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
@@ -85,13 +86,16 @@ async def list_messages(
     db: AsyncSession = Depends(get_db),
 ):
     """会话的消息历史，按时间正序，分页。"""
-    return await message_service.list_for_conversation(db, conv.id, limit, offset)
+    items = await message_service.list_for_conversation(db, conv.id, limit, offset)
+    return ApiResponse(data=items)
 
-@router.post("/{conversation_id}/chat", response_model=MessageOut)
+
+@router.post("/{conversation_id}/chat", response_model=ApiResponse[MessageOut])
 async def chat(
     data: ChatRequest,
     conv: Conversation = Depends(get_owned_conversation),
     db: AsyncSession = Depends(get_db),
 ):
     """发一条消息，同步等模型给出完整回答（暂时不做流式）。"""
-    return await chat_service.reply(db, conv, data.content)
+    msg = await chat_service.reply(db, conv, data.content)
+    return ApiResponse(data=msg)

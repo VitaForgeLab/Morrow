@@ -235,6 +235,8 @@ model_config ──(弱引用，不做外键)──> message.model_name
 { "code": 401, "message": "用户名或密码错误", "data": null }
 ```
 
+> **响应格式例外说明（2026-09-25）：** `/auth/register` 与 `/auth/login` **不使用**统一信封，保持扁平的 `access_token` / `token_type` / `user`。原因：Swagger 的 Authorize 按钮从响应**最外层**读取 token，包一层会让交互式文档的授权功能失效。此外 `/health`（基础设施探活）与 SSE 流式接口（§5.3，有自己的事件协议）同样不使用信封。这三处例外由前端与 `/docs` 共同依赖，不可随意更改。
+
 ### 5.3 SSE 事件约定（本项目自定义，以本 PRD 为准）
 
 ```text
