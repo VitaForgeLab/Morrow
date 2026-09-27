@@ -32,9 +32,11 @@
 | ---------- | ------------------------------------------------------- | ------------------------------------------------------------------------- |
 | 前端       | HTML/CSS/JS + React 19 + TypeScript + Vite + Ant Design | 只学 React 一个框架；不引入 Vue / Next.js / Redux。**版本变更记录（2026-09-25）**：脚手架给的是 React 19 + AntD 6，是当前稳定组合且无 peer 依赖冲突，故不再强行降到 18 —— 对这个应用两者无实质差别。另引入 `react-router-dom`（PRD §6 已列）与 `marked` + `dompurify`（F21）                         |
 | 后端       | Python 3.12 + FastAPI + SQLAlchemy 2.0 (async)          | ASGI 下统一用异步驱动，不用同步 Session                                   |
-| 数据库     | MySQL 8                                                 | 阶段二再评估是否迁移 PostgreSQL（pgvector）                               |
+| 数据库     | MySQL 8                                                 | 存业务数据与知识库文本 / 元数据。**决策（2026-09-26）**：阶段二**不迁移** PostgreSQL —— 迁移成本高于收益，向量改走进程内 FAISS（理由见 [v2 PRD §3.1](docs/v2_prd.md)） |
+| 向量检索   | FAISS（`faiss-cpu`，进程内）                              | **决策（2026-09-26）**：`IndexFlatIP` + L2 归一化（归一化后内积 = 余弦相似度）。规模为数千 chunk，精确检索足够，**不引入独立向量库 service**。抽象 `VectorStore` 接口留切换后路（pgvector / Qdrant 可后补） |
 | 缓存       | Redis                                                   | 阶段一列为**可选**；消息全量落库，Redis 只做缓存/上下文，阶段二启用 |
 | 大模型     | OpenAI 官方 SDK（openai 包，异步流式）                     | 用 DeepSeek 官方 API；生产统一用项目自己的 key，不做 BYOK。**变更记录（2026-09-25）**：原定 httpx 手写流式，改用官方 openai SDK —— 上游流式解析交给 SDK，阶段 F 自己那侧的 SSE 发送不受影响                                       |
+| Embedding  | 硅基流动 `Qwen/Qwen3-Embedding-8B`（远程 API）             | **决策（2026-09-26）**：走 OpenAI 兼容的 `/v1/embeddings`，**不在本机运行模型**（不引入 torch、不下载权重，Docker 镜像保持轻量）。默认输出 4096 维；硅基流动是否支持 `dimensions` 降维待实测（见 [v2 PRD §3.1](docs/v2_prd.md)） |
 | 部署运维   | Git + Linux + Docker + Docker Compose + Nginx           | 阶段一目标是`docker compose up` 一键起全栈                              |
 | 文档解析   | MinerU（PDF → Markdown）                               | 阶段二知识库构建用                                                        |
 | Agent 框架 | **未定**                                          | 阶段三再定，候选 LangChain / LangGraph / 自研 loop                        |

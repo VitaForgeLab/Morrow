@@ -76,29 +76,66 @@
 | 清洗 | 去噪 + 术语统一（同一检查项的不同叫法要归一） | 待做 |
 | 切片 | 按语义段落而非固定长度切；`chunk_size` / `overlap` 需要实验确定 | 参数待定 |
 | 元数据 | 每个 chunk 必须带来源文档、章节、页码 → 引用才可溯源 | 必须做 |
-| embedding | 以中文医疗术语的检索效果为第一判据 | 模型待定（§3） |
-| 向量库 | 部署成本 vs 检索能力 | 待定（§3） |
-| 混合检索 | BM25 负责术语精确命中，向量负责语义相近表达 | BM25 实现待定 |
+| embedding | 以中文医疗术语的检索效果为第一判据 | **已定**：硅基流动 `Qwen/Qwen3-Embedding-8B`（远程 API，§3.1） |
+| 向量库 | 部署成本 vs 检索能力 | **已定**：FAISS 进程内（§3.1） |
+| 混合检索 | BM25 负责术语精确命中，向量负责语义相近表达 | **已定**：`rank_bm25` + jieba |
 | 融合 | RRF（无需调权重，起步首选） | 已定 |
-| 重排 | Reranker 提升 Top-K 精度，代价是额外延迟 | 模型待定 |
+| 重排 | Reranker 提升 Top-K 精度，代价是额外延迟 | **推迟**：先建基线，评估后再定 |
 | 生成 | Prompt 强制引用依据；无依据时必须说"不知道" | 已定原则 |
 | 引用 | 答案里标注 `[1][2]`，与前端 chunk 卡片一一对应，且**落库** | 必须做 |
 
 ---
 
-## 3. 技术选型决策表（待定项）
+## 3. 技术选型决策表
 
 > 这张表是给阶段二开头用的。**决策理由要写在这里**，不要只留在脑子里 —— 毕设课题要求 1（调研）需要这些素材，论文的"技术选型"章节也直接来自这里。
 
-| 决策项 | 候选 | 判据 | 当前倾向 |
+| 决策项 | 候选 | 判据 | 决策（2026-09-26） |
 | --- | --- | --- | --- |
-| 向量存储 | pgvector（迁移 PostgreSQL）/ Qdrant / Milvus / Chroma | 部署成本、能否与 BM25 一体化、本机性能 | **待评估**。Milvus 部署较重，本机可能吃不下 |
-| 数据库 | 继续 MySQL + 独立向量库 / 迁移 PostgreSQL + pgvector | 迁移成本 vs 组件数量 | 阶段二**开头**决定，不要拖 |
-| embedding | BGE-m3 / bge-large-zh / 商用 API 模型 | 中文医疗术语效果、是否需本地推理、向量维度 | BGE-m3 是资料与老师参考文献里的常见选择 |
-| reranker | bge-reranker-v2-m3 / 商用 rerank API | 延迟增加 vs 准确率提升 | 待实验对比 |
-| BM25 实现 | Elasticsearch / `rank_bm25` / PostgreSQL 全文索引 | 运维组件数量 | 优先轻量方案，避免为一个 BM25 引入 ES |
-| 融合策略 | RRF / 加权求和 | 调参成本 | **RRF 起步**（无需调权重，效果稳定） |
-| 生成模型 | 沿用阶段一的 OpenAI-compatible 配置 | 长上下文能力、成本、中文医疗表达 | 沿用阶段一，不引入第二套调用方式 |
+| 向量存储 | **FAISS** / pgvector / Qdrant / Milvus / Chroma | 部署成本、与现有 MySQL 的关系、元数据过滤 | **FAISS 进程内**（`IndexFlatIP`）；`VectorStore` 抽成接口留后路 |
+| 数据库 | 继续 **MySQL** / 迁移 PostgreSQL + pgvector | 迁移成本 vs 组件数量 | **阶段二不迁库**：MySQL 存文本与元数据，向量落 FAISS 索引文件 |
+| embedding | **硅基流动 `Qwen/Qwen3-Embedding-8B`** / BGE-m3 / bge-large-zh | 中文医疗术语效果、是否本地推理、向量维度 | **远程 API**，不在本机跑模型；输出维度待确认（见 3.1） |
+| reranker | bge-reranker-v2-m3 / 商用 rerank API | 延迟增加 vs 准确率提升 | **延后**：先用向量检索 + RRF 跑基线，评估后再决定 |
+| BM25 实现 | **`rank_bm25` + jieba** / Elasticsearch / MySQL 8 FULLTEXT + ngram | 运维组件数量 | `rank_bm25` 起步；备选 MySQL FULLTEXT（不必引入 ES） |
+| 融合策略 | **RRF** / 加权求和 | 调参成本 | **RRF**（k=60），无需调权重，效果稳定 |
+| 生成模型 | **沿用阶段一** | 长上下文能力、成本、中文医疗表达 | 沿用 `model_config` 表配置，不引入第二套调用方式 |
+
+### 3.1 决策记录
+
+**为什么向量存储选 FAISS，而不是 pgvector / Qdrant / Milvus（2026-09-26）**
+
+1. **在本项目的规模下，检索性能不构成判据。** 知识库为甲状腺 / 颈动脉 / 腹部超声的指南与教材，按 500 字切片后预计**几千个 chunk 量级**。此规模下暴力精确检索（`IndexFlatIP`）单次查询为亚毫秒到毫秒级；ANN 索引要到**数万至数十万**向量才体现优势。因此 Milvus / Qdrant / pgvector / FAISS 在此规模下速度无差别，选型判据回归工程契合度。
+2. **组件数量**：现有 MySQL + backend + frontend 三个 service。引入独立向量库即第四个 service，多一份备份对象与崩溃点。FAISS 是进程内库，零新增 service。
+3. **迁移成本**：迁 PostgreSQL 需改动阶段一已跑通的部分（`asyncmy` → `asyncpg`、`ENUM` / `TINYINT(1)` / `MEDIUMTEXT` / `auto_increment` 等 MySQL 方言、`init_db.py`、docker-compose），有回归风险。
+4. **已知代价已提前付清**：FAISS 不支持元数据过滤（改为检索后在 Python 侧过滤）、增量更新需重建索引、多 worker 不共享索引文件。其中"多 worker"正是 v1 §7.1 已明确锁定的单 worker 限制，**因此不构成额外代价**。
+5. **留后路**：`VectorStore` 抽象为接口（`add` / `search` / `save` / `load`），pgvector 或 Qdrant 各写一个实现即可切换，切换成本约一个文件。**该对比本身可作为论文"技术选型"章节的实验素材。**
+6. 补充说明：FAISS 与 pgvector / Qdrant / Milvus 属于不同形态 —— FAISS 是**进程内库**（非服务），pgvector 是**数据库扩展**（检索即 SQL），Qdrant / Milvus 是**独立服务**。三者 API 互不通用、无互通标准，因此选型是"选定一个实现"，可移植性靠自建抽象层而非产品本身。
+
+**为什么 embedding 走远程 API（2026-09-26）**
+
+- 选硅基流动 `Qwen/Qwen3-Embedding-8B`，**不在本机运行模型**：省去 torch 依赖与模型权重（Docker 镜像体积、CPU 占用），且调用形态与阶段一 `llm_service` 一致（OpenAI 兼容接口），代码可复用。
+- **⚠ 维度约束（影响未来迁 pgvector）**：Qwen3-Embedding-8B 默认输出 **4096 维**（官方博客：0.6B=1024 / 4B=2560 / 8B=4096；全系支持 MRL 自定义输出维度）。而 **pgvector 的 HNSW / IVFFlat 索引上限为 `vector` 2000 维、`halfvec` 4000 维**（存储上限 16000 维，但超限无法建索引）。**4096 维连 `halfvec` 索引都超过，只能全表扫描** —— 这是将来若迁 pgvector 必须先解决的前置条件（用 MRL 降到 ≤2000，或不建索引）。FAISS 无此限制，4096 维可正常写入与检索。
+- **待验证**：硅基流动 `/v1/embeddings` 是否开放 `dimensions` 参数（MRL 降维）。填好 key 后执行以下命令，输出 `1024` 即表示支持：
+
+  ```bash
+  curl -s https://api.siliconflow.cn/v1/embeddings \
+    -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+    -d '{"model":"Qwen/Qwen3-Embedding-8B","input":"测试","dimensions":1024}' \
+    | python -c "import sys,json; print(len(json.load(sys.stdin)['data'][0]['embedding']))"
+  ```
+
+- 附：8B 是三个尺寸中最贵的。本项目语料仅数千块，**0.6B（1024 维）与 8B 的检索质量差距是否值得价差**，本身可作为 §5 评估的一部分（成本低、结论明确）。
+
+**为什么 reranker 延后（2026-09-26）**
+
+- 先用向量检索 + RRF 建立基线，再以 §5 评估口径判定 reranker 是否带来增益。若一开始就加，则失去对照组，也无从证明其价值。这也符合 v1 §8 "先跑通，再补原理"的原则。
+- 若最终启用，优先走远程 rerank API（硅基流动 `/v1/rerank` 提供 `BAAI/bge-reranker-v2-m3`），与 embedding 的"不在本机跑模型"约定一致。
+
+**尚未决策（留到阶段二实施中定）**
+
+- 切片参数（`chunk_size` / `overlap`）：需实验确定，见 §2。
+- query 改写是否需要：先不做，先看基线效果。
+- Qwen3-Embedding 的 query 指令前缀：该模型是 instruction-aware 的，query 侧建议按 `Instruct: {任务描述}\nQuery: {问题}` 拼接，document 侧不加。需实测其对检索效果的影响（属 §5 评估范畴）。
 
 ---
 
@@ -113,12 +150,15 @@
 | `document_chunk` | id, document_id(FK), chunk_index, content, token_count, page_no, section_title, embedding_ref / vector, created_at | 元数据字段是引用的基础，不能省 |
 | `citation` | id, message_id(FK → message), chunk_id(FK → document_chunk), rank, score, created_at | **必须落库**，不能只在前端拼 |
 
-### 4.1 向量存储的两种走法
+### 4.1 向量存储的三种走法（**本项目选第三种**）
 
-- **走 pgvector**：`document_chunk.embedding VECTOR(1024)`，向量与文本同库，可用 SQL 直接算相似度，组件最少。代价是迁移 PostgreSQL。
-- **走 MySQL + 独立向量库**：MySQL 存 chunk 文本与元数据，向量库只存 `chunk_id → vector` 的映射，两边靠 id 对齐。代价是组件变多、要保证两边一致。
+- **走 pgvector**：`document_chunk.embedding VECTOR(1024)`，向量与文本同库，可用 SQL 直接算相似度，组件最少。代价是迁移 PostgreSQL；且 Qwen3-Embedding-8B 的 4096 维超出 pgvector 索引上限，必须先降维（§3.1）。
+- **走 MySQL + 独立向量库**：MySQL 存 chunk 文本与元数据，向量库只存 `chunk_id → vector` 的映射，两边靠 id 对齐。代价是组件变多（第四个 service）、要保证两边一致。
+- **走 MySQL + 进程内 FAISS（已选）**：MySQL 存 `document` / `document_chunk` / `citation`，FAISS 索引以文件形式持久化（容器挂 volume），`chunk_id` 与 FAISS 中的序号（或 `IndexIDMap` 的自定义 id）对齐。**兼顾了前两种的优点**：零新增 service（无需第四容器），也不迁库（不动阶段一）。代价见 §3.1 第 4 条 —— 元数据过滤在 Python 侧做、增删文档需重建索引、单进程持有索引。这些代价在本项目规模与已锁定的单 worker 前提下均可接受。
 
 **无论哪种走法，`citation` 表都是"参考来源展示"与"引用准确率评估"的共同基础。**
+
+> **实现提示**：FAISS 的序号与 `document_chunk.id` 的对齐要显式设计。推荐用 `faiss.IndexIDMap2(IndexFlatIP(dim))` + `add_with_ids()`，把数据库主键直接作为 FAISS id，省掉一层映射表；否则需在索引旁另存一个 `id_list`（easy-RAG 用 `chunks.pkl` 存整个对象列表，恰好起到了这个作用）。删除文档时的处理：重建索引，或标记软删除 + 检索后过滤。
 
 ---
 
