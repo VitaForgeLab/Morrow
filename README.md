@@ -14,6 +14,8 @@
 | 阶段二            | RAG 超声知识库（毕设主体）                     | 有据可依、可溯源的问答 + 评估报告    | [docs/v2_prd.md](docs/v2_prd.md) |
 | 阶段三            | Agent 化健康助手（加分项 / side project）      | 长期记忆 + tools + 主动交互          | [docs/v3_prd.md](docs/v3_prd.md) |
 
+> **阶段一范围调整（2026-10-03）**：暂缓线上部署；SSE 流式延后为 P1。本表阶段一的"流式"与"可部署"按此调整理解，详见 [v1 PRD §0](docs/v1_prd.md)。
+
 三者的关系：
 
 - 阶段一是**底座**：不做完阶段一，阶段二无处挂载。
@@ -30,14 +32,14 @@
 
 | 层         | 选型                                                    | 备注                                                                      |
 | ---------- | ------------------------------------------------------- | ------------------------------------------------------------------------- |
-| 前端       | HTML/CSS/JS + React 19 + TypeScript + Vite + Ant Design | 只学 React 一个框架；不引入 Vue / Next.js / Redux。**版本变更记录（2026-09-25）**：脚手架给的是 React 19 + AntD 6，是当前稳定组合且无 peer 依赖冲突，故不再强行降到 18 —— 对这个应用两者无实质差别。另引入 `react-router-dom`（PRD §6 已列）与 `marked` + `dompurify`（F21）                         |
+| 前端       | HTML + CSS + 原生 JavaScript（无框架、无构建、无 npm） | **选型变更（2026-10-09）**：阶段一前端改用原生三件套，不用 React / TypeScript / Vite / Ant Design / react-router-dom，理由见 [v1 PRD §0.3](docs/v1_prd.md)；原"React 19 + AntD 6 版本记录"随之作废。Markdown 仍用 `marked` + `DOMPurify.sanitize`（F21，本地文件或 CDN 引入）；静态文件由 FastAPI 同源托管，因此不存在跨域与代理问题。React + TypeScript 推迟到阶段二 / 三之后再评估重构，不考虑简历上的前端价值                         |
 | 后端       | Python 3.12 + FastAPI + SQLAlchemy 2.0 (async)          | ASGI 下统一用异步驱动，不用同步 Session                                   |
 | 数据库     | MySQL 8                                                 | 存业务数据与知识库文本 / 元数据。**决策（2026-09-26）**：阶段二**不迁移** PostgreSQL —— 迁移成本高于收益，向量改走进程内 FAISS（理由见 [v2 PRD §3.1](docs/v2_prd.md)） |
 | 向量检索   | FAISS（`faiss-cpu`，进程内）                              | **决策（2026-09-26）**：`IndexFlatIP` + L2 归一化（归一化后内积 = 余弦相似度）。规模为数千 chunk，精确检索足够，**不引入独立向量库 service**。抽象 `VectorStore` 接口留切换后路（pgvector / Qdrant 可后补） |
 | 缓存       | Redis                                                   | 阶段一列为**可选**；消息全量落库，Redis 只做缓存/上下文，阶段二启用 |
-| 大模型     | OpenAI 官方 SDK（openai 包，异步流式）                     | 用 DeepSeek 官方 API；生产统一用项目自己的 key，不做 BYOK。**变更记录（2026-09-25）**：原定 httpx 手写流式，改用官方 openai SDK —— 上游流式解析交给 SDK，阶段 F 自己那侧的 SSE 发送不受影响                                       |
+| 大模型     | OpenAI 官方 SDK（openai 包，异步流式）                     | 用 DeepSeek 官方 API；阶段一/阶段二统一用项目自己的 key；**BYOK 已延后**（见 [v1 PRD §3](docs/v1_prd.md) 的 P2 一节）。**变更记录（2026-09-25）**：原定 httpx 手写流式，改用官方 openai SDK —— 上游流式解析交给 SDK，阶段 F 自己那侧的 SSE 发送不受影响                                       |
 | Embedding  | 硅基流动 `Qwen/Qwen3-Embedding-8B`（远程 API）             | **决策（2026-09-26）**：走 OpenAI 兼容的 `/v1/embeddings`，**不在本机运行模型**（不引入 torch、不下载权重，Docker 镜像保持轻量）。默认输出 4096 维；硅基流动是否支持 `dimensions` 降维待实测（见 [v2 PRD §3.1](docs/v2_prd.md)） |
-| 部署运维   | Git + Linux + Docker + Docker Compose + Nginx           | 阶段一目标是`docker compose up` 一键起全栈                              |
+| 部署运维   | Git + Linux + Docker + Docker Compose + Nginx           | 阶段一已暂缓（2026-10-03）：见 [v1 PRD §0.1](docs/v1_prd.md)；阶段一改用「本地 `uvicorn` 起后端（同时托管前端静态文件）+ 浏览器访问同一端口」验证                              |
 | 文档解析   | MinerU（PDF → Markdown）                               | 阶段二知识库构建用                                                        |
 | Agent 框架 | **未定**                                          | 阶段三再定，候选 LangChain / LangGraph / 自研 loop                        |
 
@@ -54,10 +56,10 @@ Morrow/
 │   ├── v1_prd.md        # 阶段一 PRD：完整规格
 │   ├── v2_prd.md        # 阶段二 PRD：毕设背景、检索链路与评估
 │   ├── v3_prd.md        # 阶段三 PRD：愿景与开放问题
-│   └── frontend_architecture.md  # 前端架构说明（架构 / 数据流 / 前后端交互）
-├── references/          # 资料实体与链接清单（论文、外部文档、抓取素材）
+│   └── frontend_architecture.md  # 前端架构说明（架构 / 数据流 / 前后端交互）；描述的是已删除的上一版实现
+├── references/          # 资料实体与链接清单（论文、外部文档、抓取素材）；目录待创建
 ├── backend/             # FastAPI 应用
-└── frontend/            # React 应用
+└── frontend/            # 前端静态资源（HTML / CSS / JS）；已删除，待重建（见 v1 PRD §0.3）
 ```
 
 约定：

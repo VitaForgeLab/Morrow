@@ -13,7 +13,7 @@ class Conversation(TimestampMixin, Base):
     )
     user_id: Mapped[int] = mapped_column(
         BigInteger,
-        ForeignKey("user.id"),
+        ForeignKey("user.id"),# 外键，依赖user表的id。其实也可以CASCADE，不过暂时为注销用户保留conversation
         nullable=False,
         # 这里不写 index=True：下面 __table_args__ 里的复合索引最左列就是 user_id，
         # 它本身就能用于“按 user_id 过滤”，再单独建一个索引是重复的。
@@ -36,9 +36,10 @@ class Conversation(TimestampMixin, Base):
     )
 
     __table_args__ = (
+        # __table_args__ 是类属性，用来放表级别的配置，也就是那些不能写在单个列定义里的东西
+        # 这里的Index是生成复合索引
         # 会话列表的主查询：WHERE user_id = ? ORDER BY last_message_at DESC
-        # 复合索引让“筛选 + 排序”一次走完；没有它，MySQL 只能先用 user_id
-        # 筛出一堆行、再在内存里排序（filesort），会话一多就慢。
+        # 复合索引让“筛选 + 排序”一次走完；没有它，MySQL 只能先用 user_id筛出一堆行、再在内存里排序（filesort），会话一多就慢
         # 不用写 DESC：MySQL 8 对 ASC 索引也能反向扫描来满足 DESC 排序。
-        Index("ix_conversation_user_last_msg", "user_id", "last_message_at"),
-    )# 暂时了解个大概
+        Index("ix_conversation_user_last_msg", "user_id", "last_message_at"),# Index("名字","列1"，"列2")
+    )

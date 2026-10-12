@@ -34,7 +34,7 @@ class ModelConfig(TimestampMixin, Base):
     model_name: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
-        comment="真正发给 API 的 model 字段，如 deepseek-chat"
+        comment="真正发给 API 的 model 字段，如 deepseek-flash"
     )
     params: Mapped[dict | None] = mapped_column(
         JSON,
@@ -55,5 +55,5 @@ class ModelConfig(TimestampMixin, Base):
     owner_user_id: Mapped[int | None] = mapped_column(
         BigInteger,
         nullable=True,
-        comment="NULL=系统配置；非空=用户自带（P2 BYOK）"
+        comment="NULL=系统配置；BYOK，已延后"
     )

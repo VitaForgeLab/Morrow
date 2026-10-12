@@ -31,7 +31,7 @@ class Message(TimestampMixin,Base):
         BigInteger,
         ForeignKey("conversation.id", ondelete="CASCADE"),  # ✅ CASCADE
         nullable=False,
-        index=True  # ✅ 小写 index
+        index=True
     )
     role: Mapped[MessageRole] = mapped_column(
         # values_callable：强制落库用枚举的【值】（小写 system / user / assistant）。

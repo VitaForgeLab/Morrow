@@ -1,8 +1,7 @@
-from datetime import datetime, timezone
-
 from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.database.base import utcnow
 from app.models import Conversation, Message
 
 DEFAULT_TITLE = "新对话"
@@ -19,7 +18,7 @@ async def get_empty_for_user(db: AsyncSession, user_id: int) -> Conversation | N
         select(Conversation)
         .where(
             Conversation.user_id == user_id,
-            ~exists(
+            ~exists(# ~是NOT的意思
                 select(Message.id).where(Message.conversation_id == Conversation.id)
             ),
         )
@@ -39,11 +38,10 @@ async def create(db: AsyncSession, user_id: int, title: str | None = None) -> Co
     if existing is not None:
         return existing
 
-    now = datetime.now(timezone.utc)
     conv = Conversation(
         user_id=user_id,
         title=title or DEFAULT_TITLE,
-        last_message_at=now,          # NOT NULL，且是列表排序依据，最新有消息的会话排最上面
+        last_message_at=utcnow(),     # NOT NULL，且是列表排序依据，最新有消息的会话排最上面
     )
     db.add(conv)
     await db.commit()
@@ -85,5 +83,5 @@ async def delete(db: AsyncSession, conv: Conversation) -> None:
 
 async def touch_last_message_at(db: AsyncSession, conv: Conversation) -> None:
     """发消息后刷新活跃时间，让这个会话排到列表最前面。"""
-    conv.last_message_at = datetime.now(timezone.utc)
+    conv.last_message_at = utcnow()
     await db.commit()

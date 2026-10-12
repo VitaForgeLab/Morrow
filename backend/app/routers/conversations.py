@@ -30,7 +30,7 @@ async def get_owned_conversation(
 
 
 # ---------- 端点 ----------
-@router.get("", response_model=ApiResponse[list[ConversationOut]])
+@router.get("", response_model=ApiResponse[list[ConversationOut]])# 虽然是""，但是上面挂了"/conversations"，所以访问的是会话
 async def list_conversations(
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
@@ -54,6 +54,7 @@ async def create_conversation(
 
 @router.get("/{conversation_id}", response_model=ApiResponse[ConversationOut])
 async def get_conversation(conv: Conversation = Depends(get_owned_conversation)):
+    """访问某个conversation"""
     return ApiResponse(data=conv)
 
 
@@ -63,6 +64,7 @@ async def rename_conversation(
     conv: Conversation = Depends(get_owned_conversation),
     db: AsyncSession = Depends(get_db),
 ):
+    """重命名某个conversation"""
     conv = await conversation_service.rename(db, conv, data.title)
     return ApiResponse(data=conv)
 
@@ -85,7 +87,7 @@ async def list_messages(
     conv: Conversation = Depends(get_owned_conversation),
     db: AsyncSession = Depends(get_db),
 ):
-    """会话的消息历史，按时间正序，分页。"""
+    """会话的message历史，按时间正序，分页。"""
     items = await message_service.list_for_conversation(db, conv.id, limit, offset)
     return ApiResponse(data=items)
 

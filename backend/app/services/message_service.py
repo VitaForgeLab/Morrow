@@ -25,6 +25,7 @@ async def create(
     content: str,
     status: MessageStatus,
     model_name: str | None = None,
+    error_message: str | None = None,
 ) -> Message:
     msg = Message(
         conversation_id=conversation_id,
@@ -32,6 +33,7 @@ async def create(
         content=content,
         status=status,
         model_name=model_name,
+        error_message=error_message,
     )
     db.add(msg)
     await db.commit()
@@ -49,7 +51,7 @@ async def list_recent_completed(# 给大模型构造上下文，谁能看到？�
             Message.conversation_id == conversation_id,
             Message.status == MessageStatus.COMPLETED,
         )
-        .order_by(Message.id.desc())
+        .order_by(Message.id.desc())# 先取倒序，这样才能取到最近的n条消息
         .limit(limit)
     )
     return list(reversed(result.scalars().all()))

@@ -3,6 +3,43 @@
 > 上游：毕设背景见 [v2 PRD §0](v2_prd.md)；全局技术栈与目录约定见仓库 [README](../README.md)。
 > 下游：[阶段二](v2_prd.md) 在本阶段的问答骨架上挂 RAG。
 > 状态：**待开工**（本文件是阶段一的完整规格）
+>
+> **本文件正文（§1 起）描述的是阶段一的原始规格；2026-10-03 的两项范围调整见 §0，正文与 §0 冲突处以 §0 为准。**
+
+---
+
+## 0. 决策记录
+
+> 本节记录对阶段一范围的调整。凡与正文冲突处，以本节为准。
+
+### 0.1 暂缓线上部署（2026-10-03）
+
+- **决策**：阶段一不实现 Docker Compose + Nginx 部署，DoD 第 9 条暂缓执行。
+- **理由**：把 Docker / Nginx 的学习成本移出阶段一，集中投入唯一的关键路径（前端）；毕设课题要求 4 只要求"开发 Web 交互界面"，不含部署。
+- **替代验证**：本地 `uvicorn` 起后端（同时同源托管前端静态文件），浏览器访问同一端口；README 写明启动步骤。
+- **连带暂缓**：§8.2 第 14 项（Docker Compose）；§9 中"Docker 从零学"一行风险。
+- **已知边界**：前端静态文件由 FastAPI 同源托管，因此开发与生产都不存在跨域与代理问题；生产部署（Nginx 等）本阶段不验证。
+- **恢复条件与入口**：阶段一前端跑通后，或阶段二需要容器化知识库构建流程时；入口为 §2 DoD 第 9 条与 §8.2 第 14 项。
+
+### 0.2 SSE 流式延后为 P1（2026-10-03）
+
+- **决策**：阶段一的 `POST /conversations/{id}/chat` 保持非流式；SSE 保留为 P1，且恢复时**只做前端流式消费**，不做后端"生成任务 detach"与 `GET /stream` 续流。
+- **理由**：流式省的是首字等待时间而非总耗时，而它的实现成本集中在 detach + 进程内广播 + 单 worker 限制；延后它可去掉阶段一最难的一块，且不影响毕设课题要求 3、4。
+- **连带暂缓**：F6 的 SSE 部分、F7、F13、F17、§5.3、§7.1（含第 9 条单 worker 限制）、§8.2 第 9 / 10 / 12 项；Redis 的 Pub/Sub 动机随之消失（Redis 阶段一本就是可选项）。
+- **替代设计（需要做，不能省）**：DoD 第 4、5 条（多会话并行、切走不丢）改由前端承担 —— "正在等待回答"的请求状态必须活在页面渲染逻辑之外（原生方案下就是一个模块级对象，天然满足），否则切走再切回就看不到回答。
+- **恢复条件与入口**：阶段一前端跑通后，或阶段二回答变长（带引用）导致等待不可接受时；入口为 F6 / F13 与 §8.2 第 9、10 项。
+
+### 0.3 阶段一前端改用原生三件套（2026-10-09）
+
+- **决策**：阶段一前端用 **原生 HTML + CSS + JavaScript**，不引入 React / TypeScript / Vite / Ant Design / react-router-dom；无 npm、无构建步骤，静态文件由 FastAPI 同源托管。React + TypeScript 推迟到阶段二或阶段三之后再评估是否重构。
+- **理由**：
+  1. **成本结构**：无论用不用框架，JS 都必须补（`fetch`、数组方法、事件对象、错误处理）；React 只是在这之上再加一层构建工具与组件模型。上一版 1000+ 行由 AI 生成的代码之所以无法消化，主因是一次性引入了太多新层。
+  2. **需求结构**：SSE 流式与部署已延后（§0.2、§0.1），"切走不丢"在原生方案下天然满足——状态活在模块级对象里，不存在"组件卸载导致状态丢失"的问题。React 在这个项目里最大的优势恰好被砍掉了。
+  3. **风险控制**：避免项目因学习技术栈而停滞。明确**不考虑简历上的前端价值**（就业方向以后端为主）。
+- **连带调整**：§1 技术关键词与全栈链路图；§3 前端 F11–F16 的实现方式；§6 的路由与样式约定；§8.1 参考项目用途；§8.2 第 1–4 项与第 16 项；§8.3；§9 第一行风险；README 技术栈表与目录约定。
+- **待定（开工前定）**：① 页面路由用 hash（`/#/chat/3`，改动最小）还是 History API（`/chat/3`，需后端加一条兜底路由把非 `/api` 路径都返回 `index.html`）；② JS 是否拆成 ES 模块（`<script type="module">`）还是单文件。
+- **恢复条件与入口**：阶段二 / 三完成、且确实需要组件化时；届时先在百行量级的小项目上练手，再决定是否迁移（`api/` 层与 CSS 可复用）。
+- **知识点清单**：做这个前端需要补什么、补到什么程度，见 [frontend_knowledge_gaps.md](frontend_knowledge_gaps.md)（临时文档，消化进笔记后删除）。
 
 ---
 
@@ -12,11 +49,13 @@
 
 它的价值不在功能新奇（本质是 AI chat 套壳），而在于三件事：
 
-1. 它逼你把**一条完整的全栈链路**跑通：浏览器 → React → HTTP/SSE → FastAPI → 鉴权 → MySQL → 大模型 API → 回流渲染。
+1. 它逼你把**一条完整的全栈链路**跑通：浏览器 → 原生 JS（fetch）→ HTTP → FastAPI → 鉴权 → MySQL → 大模型 API → 回流渲染。
 2. 它是毕设的**最小可用骨架**：阶段二只需把"直接问模型"换成"先检索知识库再问模型"，其余全部复用。
 3. 它是简历与面试的**可演示载体**：能当场打开、能演示、能讲清设计取舍。
 
-**本阶段的技术关键词**：FastAPI 分层、异步 SQLAlchemy、MySQL、JWT、SSE 流式、多会话并行、生成任务 detach、React + TS 前端、Docker Compose。
+**本阶段的技术关键词**：FastAPI 分层、异步 SQLAlchemy、MySQL、JWT、SSE 流式、多会话并行、生成任务 detach、原生三件套前端（HTML/CSS/JS）、Docker Compose。
+
+> **2026-10-03 调整**：其中 **SSE 流式、生成任务 detach、Docker Compose** 三项已延后，§1 首句的"流式输出"与"部署到线上"按此调整理解 —— 见 §0。
 
 ---
 
@@ -27,14 +66,14 @@
 | # | 演示动作                                                     | 验证了什么                   |
 | - | ------------------------------------------------------------ | ---------------------------- |
 | 1 | 注册新账号 → 自动进入聊天页                                 | 注册 + 签发 token + 自动登录 |
-| 2 | 新建会话 A，问"甲状腺超声检查前需要空腹吗"，看到逐字流式输出 | SSE 流式                     |
+| 2 | 新建会话 A，问"甲状腺超声检查前需要空腹吗"，看到逐字流式输出【2026-10-03 暂缓，见 §0.2】 | SSE 流式                     |
 | 3 | 在 A 里追问"那喝水呢"，回答体现对上一轮的引用                | 多轮上下文                   |
 | 4 | A 生成中，新建会话 B 并提问                                  | 多会话并行                   |
 | 5 | 切回 A，看到的是**完整回答**而不是半截                 | 切走不丢（生成 detach）      |
 | 6 | 把 A 重命名为"甲状腺检查"，删除 B                            | 会话重命名 / 删除            |
 | 7 | 刷新页面，历史仍在                                           | 落库                         |
 | 8 | 退出后用另一账号登录，看不到上面两个会话                     | 越权校验 + 个人信息保护      |
-| 9 | `docker compose up` 一条命令起全栈                         | 部署                         |
+| 9 | `docker compose up` 一条命令起全栈【2026-10-03 暂缓，见 §0.1】                         | 部署                         |
 
 9 条全部走通 = 阶段一完成。
 
@@ -70,6 +109,8 @@
 | F15  | 路由守卫      | 无 token 一律跳登录页                           |
 | F16  | 免责声明常驻  | 页面底部固定展示"不替代医生诊断"                |
 
+> **2026-10-09 实现方式调整**：F11–F16 全部用原生 HTML/CSS/JS 实现，不用 React / Ant Design / react-router-dom。路由守卫（F15）改由前端自己的登录态判断实现；"不手写样式"的约束解除（无组件库可用）。理由见 §0.3。
+
 ### P1（重要，可延后收尾）
 
 | 编号 | 功能                     | 说明                                                                      |
@@ -83,10 +124,14 @@
 
 ### P2（可选收尾，不阻塞验收）
 
-| 编号 | 功能            | 说明                                                                 |
-| ---- | --------------- | -------------------------------------------------------------------- |
-| F23  | BYOK 多模型配置 | 用户在设置页填自己的 API key 与模型（`model_config` 表已预留字段） |
-| F24  | Redis 缓存      | 会话列表热点数据 / 最近上下文缓存                                    |
+| 编号 | 功能       | 说明                              |
+| ---- | ---------- | --------------------------------- |
+| F24  | Redis 缓存 | 会话列表热点数据 / 最近上下文缓存 |
+
+> **BYOK 延后（2026-10-09）**：原 F23「用户在设置页填自己的 API key 与模型」**不属于阶段一范围**，延后到阶段一之后（F23 号位留空，不改编号，避免波及其他引用）。
+> 理由：毕设 7 条课题要求均未涉及"用户自带模型"；BYOK 需要把第三方密钥入库，并解决越权读取与恶意 `base_url` 问题，与课题要求 5「个人信息保护」的方向相反；阶段二真正需要的是**服务端**可切换模型（服务于课题要求 6 的多模型评估），与 BYOK 不是一回事。
+> 现状：`model_config.owner_user_id` 字段保留但**当前无任何代码使用**；`model_config_service` 只有 `get_default()`。
+> 恢复条件：阶段二评估链路跑通、确认需要横向对比多个模型之后，从本条接续。
 
 ### 明确不做（Out of scope）
 
@@ -177,11 +222,11 @@ MySQL 8 / InnoDB / utf8mb4。四张表。
 | params        | JSON         | NULL                               | temperature / max_tokens 等                      |
 | is_default    | TINYINT(1)   | NOT NULL, 默认 0                   | 唯一默认（应用层保证）                           |
 | is_active     | TINYINT(1)   | NOT NULL, 默认 1                   |                                                  |
-| owner_user_id | BIGINT       | NULL                               | NULL = 系统配置；非空 = 用户自带（P2 BYOK）      |
+| owner_user_id | BIGINT       | NULL                               | NULL = 系统配置；非空 = 用户自带（BYOK，已延后，见 §3）      |
 | created_at    | DATETIME     | NOT NULL                           |                                                  |
 | updated_at    | DATETIME     | NOT NULL                           |                                                  |
 
-> 阶段一实际只需要**一行数据**（`is_default=1, owner_user_id=NULL`）。表先建好是为了：① P2 的 BYOK 不用改结构；② 面试里"模型可配置"这句话有代码支撑，而不是嘴上说。
+> 阶段一实际只需要**一行数据**（`is_default=1, owner_user_id=NULL`）。表先建好是为了：① 将来做 BYOK 时不用改结构（BYOK 已延后，见 §3）；② 面试里"模型可配置"这句话有代码支撑，而不是嘴上说。
 
 ### 4.5 表关系
 
@@ -212,7 +257,7 @@ model_config ──(弱引用，不做外键)──> message.model_name
 | POST   | `/conversations/{id}/chat`     | 发起回答，返回 SSE 流                 | 是   |
 | GET    | `/conversations/{id}/stream`   | 只订阅当前生成流（切回 / 刷新后续流） | 是   |
 | POST   | `/conversations/{id}/stop`     | 中断生成（P1）                        | 是   |
-| GET    | `/models`                      | 可用模型列表（阶段一返回默认那条）    | 是   |
+| GET    | `/models`                      | 可用模型列表（阶段一返回默认那条）**【当前未实现，代码里没有这个路由】**    | 是   |
 
 > **`POST /conversations` 的行为约定（2026-09-25 补充）**：如果该用户已存在一个"还没问过话"的会话（一条消息都没有），**直接返回它，不再新建**。目的是避免用户反复点击"新建会话"堆出一串空会话（实测确实可以这样堆）。判定标准就是"这个会话有没有被问过话"，与用户提出的规则一致。
 
@@ -271,11 +316,11 @@ data: {"message": "上游模型调用失败"}
 | `/login`                | 登录 / 注册          | 标签切换，用户名 + 密码                                                                       |
 | `/chat`                 | 聊天主页             | 左侧会话列表（新建 / 重命名 / 删除 / 按活跃排序）+ 右侧聊天窗（消息流 + 输入框 + 生成中状态） |
 | `/chat/:conversationId` | 同上，定位到指定会话 |                                                                                               |
-| `/settings`             | 设置                 | 显示当前模型；P2 加 BYOK 配置                                                                 |
+| `/settings`             | 设置                 | 显示当前模型（BYOK 已延后，见 §3）                                                                 |
 
-- 前端用 `react-router-dom`（两个参考项目都没用到，**需另学**）。
-- 路由守卫：无 token 一律跳 `/login`。
-- UI 全部用 Ant Design，**不手写样式、不做移动端适配**。
+- **路由（2026-10-09 调整）**：不用 `react-router-dom`。改用原生方案二选一——hash 路由（`/#/chat/3`，改动最小）或 History API（`/chat/3`，需后端加一条兜底路由，把非 `/api` 路径都返回 `index.html`）。开工前定，见 §0.3。
+- 路由守卫：无 token 一律跳 `/login`；同样是原生实现，判断前端自己维护的登录态即可。
+- **样式（2026-10-09 调整）**：不再"全部用 Ant Design"，改为手写 CSS；"不做移动端适配"不变。
 - 页面底部常驻免责声明：**"本系统仅供健康科普与检查流程咨询，不替代医生诊断与治疗建议。"**
 
 ---
@@ -342,7 +387,7 @@ data: {"message": "上游模型调用失败"}
 
 | 项目               | 位置                                                                          | 主要用来学                                                                                                                                 |
 | ------------------ | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| fastapi-react-todo | [本地](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/fastapi-react-todo>) | 前端工程结构（组件拆分 / Context 状态 /`api/` 层 fetch 封装 / TS 类型）+ FastAPI 基础分层（APIRouter / Schema 拆分 / Service 层 / CORS） |
+| fastapi-react-todo | [本地](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/fastapi-react-todo>) | FastAPI 基础分层（APIRouter / Schema 拆分 / Service 层 / CORS）+ 前端 `api/` 层的 fetch 封装思路（**前端其余部分仅作参考**：阶段一不用 React，见 §0.3） |
 | recyle             | [本地](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/recyle>)             | 异步 SQLAlchemy 与连接池、SSE 流式（服务端 + 前端消费）、统一响应与统一异常、请求日志中间件                                                |
 
 > 两者都**不覆盖**的部分（多会话模型、`model_config`、生成任务 detach、部署）由本项目自行设计，设计见 §7。
@@ -351,10 +396,10 @@ data: {"message": "上游模型调用失败"}
 
 | #  | 内容                     | 学到什么程度（边界）                                                                                                                                                                                                               | 参考                                                                                                                                                                                                                                                       |
 | -- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1  | 前端三件套               | HTML 结构 / CSS 盒模型 + Flex / JS DOM + 事件 + fetch。**不求**手写复杂布局与动画                                                                                                                                            | [Frontend crashcourse.md](<../../../2 Fullstack Dev/20 Raw/Frontend crashcourse.md>)                                                                                                                                                                        |
-| 2  | React 最小集             | props / useState / useEffect / 列表 key / 受控表单 / Context / fetch 调 API 与 loading-error 态。**不学** Redux、Next.js、SSR、性能优化、fiber 原理                                                                          | [TodoContext.tsx](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/fastapi-react-todo/frontend/src/context/TodoContext.tsx>)、[frontend-tutorial.md](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/fastapi-react-todo/Document/frontend-tutorial.md>) |
-| 3  | TypeScript 够用量        | 给 props 与 API 响应写`interface`，可选字段用 `?`。**不学**泛型体操、装饰器、复杂类型推导                                                                                                                                | [types/todo.ts](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/fastapi-react-todo/frontend/src/types/todo.ts>)                                                                                                                                          |
-| 4  | react-router-dom         | 配 3 条路由 + 路由守卫。**不学**嵌套路由高级用法、loader/action                                                                                                                                                              | [官方文档](https://reactrouter.com/start/declarative/installation)（参考项目里没有）                                                                                                                                                                        |
+| 1  | 前端三件套               | HTML 结构 / CSS 盒模型 + Flex / JS DOM 与事件绑定。**不求**手写复杂布局与动画；**不做**媒体查询与移动端适配                                                                                                                                            | [Frontend crashcourse.md](<../../../2 Fullstack Dev/20 Raw/Frontend crashcourse.md>)                                                                                                                                                                        |
+| 2  | fetch 调后端与鉴权链路  | `fetch` + `async/await` + `try/catch`；`Authorization: Bearer` 请求头；登录接口发 `application/x-www-form-urlencoded`（用 `URLSearchParams` 拼）；拆统一响应信封；401 一处收口；token 与用户信息存 `localStorage`                                                                          | 参考项目前端的 `api/` 层封装思路（它用 React，只看网络层） |
+| 3  | 原生渲染与状态管理    | 用 `map` / `filter` / 模板字符串拼 HTML，或 `createElement` + `appendChild`；`classList` 切换页面与显隐；用模块级对象存跨页面状态（"切走不丢"）                                                                                                                                | 本 PRD §0.2 的替代设计（跨页面状态放哪）                                                                                                                                          |
+| 4  | 页面路由（原生）         | hash 或 History API 二选一，配 3 条路由 + 登录守卫。**不学**框架路由的高级用法                                                                                                                                                              | [MDN History API](https://developer.mozilla.org/en-US/docs/Web/API/History_API)（路由方案待定，见 §0.3）                                                                                                                                                                        |
 | 5  | APIRouter 拆分           | 按业务拆 router +`prefix`/`tags` + 在 main 组装                                                                                                                                                                                | [backend/app/routers/](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/fastapi-react-todo/backend/app/routers/>)                                                                                                                                         |
 | 6  | 异步 SQLAlchemy          | 异步引擎 / 会话工厂 /`get_db` 依赖 / `select()` 语法。**要能讲清**"为什么 async 路由里不能用同步 Session"                                                                                                                | [db_config.py](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/recyle/News/Admin/config/db_config.py>)、[官方 asyncio 文档](https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html)                                                                |
 | 7  | SQLAlchemy 2.0 建模      | `Mapped` / `mapped_column` / FK / 索引 / 关系 / comment                                                                                                                                                                        | [models/users.py](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/recyle/News/Admin/models/users.py>)                                                                                                                                                    |
@@ -366,7 +411,7 @@ data: {"message": "上游模型调用失败"}
 | 13 | MySQL 基础               | 建库建表 / 索引 / 事务 / 会用`EXPLAIN` 看一次。**不学**主从复制、分库分表                                                                                                                                                  | 自己笔记[3.MySQL.md](<../../../2 Fullstack Dev/21 Backend Dev/3.MySQL.md>)                                                                                                                                                                                  |
 | 14 | Docker Compose 部署      | 写 3 个 service（mysql / backend / frontend）+ 前端多阶段构建 + 环境变量注入。**不学** K8s、Swarm、CI/CD                                                                                                                     | 自己笔记[docker.md](<../../../2 Fullstack Dev/23 Toolbox/docker.md>)（需先补）                                                                                                                                                                              |
 | 15 | pytest 冒烟              | 2–4 个用例：登录成功/失败、越权被拒、发消息（mock 模型）。**不学**覆盖率体系、复杂集成测试                                                                                                                                  | [官方 Testing 教程](https://fastapi.tiangolo.com/tutorial/testing/)                                                                                                                                                                                         |
-| 16 | Markdown + XSS 防护      | `marked` 渲染 + `DOMPurify.sanitize`；React 用 `dangerouslySetInnerHTML` 时**必须**保留 sanitize                                                                                                                       | [AIChat.vue](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/recyle/News/App/src/views/AIChat.vue>)、[DOMPurify](https://github.com/cure53/DOMPurify)                                                                                                     |
+| 16 | Markdown + XSS 防护      | `marked` 渲染 + `DOMPurify.sanitize`；原生方案里把结果交给 `innerHTML` 前**必须**sanitize                                                                                                                       | [AIChat.vue](<../../../2 Fullstack Dev/20 Raw/v1_study_resourse/recyle/News/App/src/views/AIChat.vue>)、[DOMPurify](https://github.com/cure53/DOMPurify)                                                                                                     |
 | 17 | RAG 资料准备（非代码）   | 收集甲状腺/颈动脉/腹部超声资料并用 MinerU 转 md；预习切片 / embedding / 检索概念                                                                                                                                                   | [v2 PRD](v2_prd.md)                                                                                                                                                                                                                                         |
 
 ### 8.3 明确不学（阶段一不碰）
@@ -377,7 +422,7 @@ data: {"message": "上游模型调用失败"}
 - PostgreSQL / pgvector
 - K8s / CI-CD / 监控告警
 - SQLAlchemy 高级特性（关系加载策略调优、事件监听、自定义类型）
-- React 原理层（fiber、虚拟 DOM diff、并发特性）
+- React / TypeScript / 前端框架与构建工具（Vite、npm、Ant Design、react-router-dom）：阶段一不用，重构评估见 §0.3
 
 ---
 
@@ -385,7 +430,7 @@ data: {"message": "上游模型调用失败"}
 
 | 风险                                                          | 影响                                         | 缓解                                                                       |
 | ------------------------------------------------------------- | -------------------------------------------- | -------------------------------------------------------------------------- |
-| 前端从零起步，是**最长关键路径**                        | 拖住整体进度                                 | UI 全用 AntD；参考项目照着改；集中把 React 最小集先啃下来                  |
+| 前端从零起步，是**最长关键路径**                        | 拖住整体进度                                 | 用原生三件套（选型见 §0.3），不引入框架与构建工具；先补 JS（`fetch` / 数组方法 / 事件对象），知识点清单见 [frontend_knowledge_gaps.md](frontend_knowledge_gaps.md)                  |
 | 生成 detach 无现成参考                                        | 可能卡住                                     | 先跑前端保活简化版；参考开源 chat 应用（§7.1）；必要时降级为 P1           |
 | Docker 从零学                                                 | 收尾超期                                     | 只做"能起"，不做调优；先把`docker.md` 笔记补上                           |
 | 功能范围膨胀                                                  | 迟迟没有可演示版本                           | 严格按 P0 → P1 → P2 顺序推进；先跑通非流式全链路，再上流式               |

@@ -7,7 +7,7 @@ engine=create_async_engine(
     pool_recycle = 3600, # 一小时回收
     pool_size = 5,
     max_overflow = 10,
-    echo = True # 会打印SQL
+    echo = settings.SQL_ECHO # 由 .env 的 SQL_ECHO 控制（原来硬编码 True，见 B5）
 )
 
 AsyncSessionLocal = async_sessionmaker(

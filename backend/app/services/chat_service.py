@@ -1,4 +1,6 @@
 # 聊天业务的编排，结合conversation_service, llm_service, message_service
+import logging
+
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -6,8 +8,14 @@ from app.core.prompt import SYSTEM_PROMPT
 from app.models import Conversation, Message, MessageRole, MessageStatus
 from app.services import conversation_service, llm_service, message_service
 
+logger = logging.getLogger("morrow.chat")
+
 # v1PRD §7.2：每次带上最近 N 条已完成的消息作为上下文
 HISTORY_LIMIT = 10
+
+# message.error_message 是 VARCHAR(500)：截断时留一点余量，
+# 否则超长会抛 DataError，让"记录失败"这件事本身也失败
+ERROR_MESSAGE_MAX_LEN = 480
 
 
 async def reply(db: AsyncSession, conv: Conversation, user_content: str) -> Message:
@@ -32,6 +40,22 @@ async def reply(db: AsyncSession, conv: Conversation, user_content: str) -> Mess
     try:
         answer, model_name = await llm_service.complete(db, messages)
     except Exception as exc:
+        # 1) 先记日志：带 traceback，保证即使下一步落库也失败，原因不会一起丢
+        logger.exception("模型调用失败 conversation_id=%s", conv.id)
+
+        # 2) 再把失败落库，让"失败"成为可见数据（v1PRD §4.3 的 status / error_message）
+        await message_service.create(
+            db,
+            conv.id,
+            MessageRole.ASSISTANT,
+            "",  # 内容留空：让前端按 status 决定渲染什么，避免"内容"和"状态"两处表达同一件事
+            MessageStatus.FAILED,
+            error_message=str(exc)[:ERROR_MESSAGE_MAX_LEN],
+        )
+
+        # 3) 最后才抛：异常链照旧保留。
+        #    这里异常来自网络调用，会话仍健康，所以不需要 rollback
+        #    （若异常来自数据库操作本身，那个会话会进入失败事务状态，必须先 await db.rollback()）
         raise HTTPException(
             status_code=502, detail="上游模型调用失败，请稍后重试"
         ) from exc
